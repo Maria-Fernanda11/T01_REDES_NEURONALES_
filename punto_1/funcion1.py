@@ -28,6 +28,17 @@ from typing import Callable
 
 import numpy as np
 
+__all__ = [
+    "optimize",
+    "graficar_optimizacion",
+    "make_gif",
+    "ALGORITHMS",
+    "PROBLEMS",
+    "MAIN_ALGOS",
+    "run_batch",
+    "OptimizeResult",
+]
+
 
 # ======================================================================
 # 1. Función de prueba
