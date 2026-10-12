@@ -473,15 +473,19 @@ def run_batch(algorithm, problem, dim, n_runs, seed0, max_evals, threshold, para
 # ======================================================================
 # 7. Graficación Interactiva y Animada (Plotly 2D y 3D) y GIF
 # ======================================================================
-def graficar_optimizacion(res: OptimizeResult, max_frames: int = 60, mostrar: bool = False):
+def graficar_optimizacion(res: OptimizeResult, max_frames: int = 60, mostrar: bool = False,
+                          modo_2d: str = "superficie_3d"):
     """
     Genera una animación interactiva en Plotly del proceso de optimización
-    tanto para dimensión 2 como para dimensión 3.
+    mostrando la superficie real de la función objetivo tanto para dimensión 2 como para dimensión 3.
 
     Parámetros:
         res        : Objeto OptimizeResult resultante de optimize().
         max_frames : Número máximo de fotogramas en la animación.
         mostrar    : Si True, intenta desplegar la figura en el entorno.
+        modo_2d    : 'superficie_3d' (default) muestra la superficie z = f(x₁, x₂) en 3D
+                     con la trayectoria o partículas deslizándose sobre ella.
+                     'contorno_2d' muestra el plano de contornos proyectado en 2D.
     """
     import plotly.graph_objects as go
 
@@ -491,148 +495,334 @@ def graficar_optimizacion(res: OptimizeResult, max_frames: int = 60, mostrar: bo
     spec = PROBLEMS[res.problem]
     lim_inf, lim_sup = spec["bounds"]
     optimo = spec["known_optimum"](res.dim) if spec["known_optimum"] else None
+    f_opt = spec["func"](optimo) if optimo is not None else 0.0
     n_raw = len(res.frames)
     sel = np.unique(np.linspace(0, n_raw - 1, min(n_raw, max_frames)).astype(int))
 
     es_trayectoria = np.ndim(res.frames[0]) == 1
 
     if res.dim == 2:
-        g = np.linspace(lim_inf, lim_sup, 120)
-        X, Y = np.meshgrid(g, g)
-        if res.problem == "rosenbrock":
-            Z = 100.0 * (Y - X ** 2) ** 2 + (1.0 - X) ** 2
-        elif res.problem == "rastrigin":
-            Z = 20.0 + (X ** 2 - 10.0 * np.cos(2 * np.pi * X)) + (Y ** 2 - 10.0 * np.cos(2 * np.pi * Y))
-        else:
-            grid_pts = np.column_stack([X.ravel(), Y.ravel()])
-            Z = np.array([spec["func"](p) for p in grid_pts]).reshape(X.shape)
+        if modo_2d == "superficie_3d":
+            # Grilla para la superficie z = f(x1, x2)
+            n_grid = 75
+            g = np.linspace(lim_inf, lim_sup, n_grid)
+            X, Y = np.meshgrid(g, g)
+            if res.problem == "rosenbrock":
+                Z = 100.0 * (Y - X ** 2) ** 2 + (1.0 - X) ** 2
+            elif res.problem == "rastrigin":
+                Z = 20.0 + (X ** 2 - 10.0 * np.cos(2 * np.pi * X)) + (Y ** 2 - 10.0 * np.cos(2 * np.pi * Y))
+            else:
+                grid_pts = np.column_stack([X.ravel(), Y.ravel()])
+                Z = np.array([spec["func"](p) for p in grid_pts]).reshape(X.shape)
 
-        trace_contour = go.Contour(
-            x=g, y=g, z=Z,
+            def f_eval_point(pt):
+                if res.problem == "rosenbrock":
+                    return 100.0 * (pt[1] - pt[0] ** 2) ** 2 + (1.0 - pt[0]) ** 2
+                elif res.problem == "rastrigin":
+                    return 20.0 + (pt[0] ** 2 - 10.0 * np.cos(2 * np.pi * pt[0])) + (pt[1] ** 2 - 10.0 * np.cos(2 * np.pi * pt[1]))
+                return spec["func"](pt)
+
+            def f_eval_population(pop):
+                if res.problem == "rosenbrock":
+                    return 100.0 * (pop[:, 1] - pop[:, 0] ** 2) ** 2 + (1.0 - pop[:, 0]) ** 2
+                elif res.problem == "rastrigin":
+                    return 20.0 + (pop[:, 0] ** 2 - 10.0 * np.cos(2 * np.pi * pop[:, 0])) + (pop[:, 1] ** 2 - 10.0 * np.cos(2 * np.pi * pop[:, 1]))
+                return np.array([spec["func"](p) for p in pop])
+
+            trace_surface = go.Surface(
+                x=g, y=g, z=Z,
+                colorscale="Viridis",
+                opacity=0.82,
+                showscale=True,
+                colorbar=dict(title="f(x₁, x₂)", len=0.75),
+                name="Superficie f(x)",
+                hoverinfo="none"
+            )
+
+            z_opt = f_opt if f_opt is not None else 0.0
+            trace_opt = go.Scatter3d(
+                x=[optimo[0]] if optimo is not None else [],
+                y=[optimo[1]] if optimo is not None else [],
+                z=[z_opt] if optimo is not None else [],
+                mode="markers",
+                marker=dict(symbol="diamond", size=10, color="red", line=dict(color="black", width=2)),
+                name=f"Óptimo ({optimo[0]:g}, {optimo[1]:g}, z={z_opt:g})" if optimo is not None else "Óptimo"
+            )
+
+            idx0 = sel[0]
+            f0 = res.frames[idx0]
+            if es_trayectoria:
+                P_init = np.array([res.frames[i][:2] for i in sel[:1]])
+                Z_init = np.array([f_eval_point(p) for p in P_init])
+                trace_path = go.Scatter3d(
+                    x=P_init[:, 0], y=P_init[:, 1], z=Z_init,
+                    mode="lines+markers",
+                    line=dict(color="cyan", width=5),
+                    marker=dict(color="yellow", size=4),
+                    name="Trayectoria"
+                )
+                z_act0 = f_eval_point(f0[:2])
+                trace_actual = go.Scatter3d(
+                    x=[f0[0]], y=[f0[1]], z=[z_act0],
+                    mode="markers",
+                    marker=dict(color="red", size=8, line=dict(color="white", width=2)),
+                    name="Punto actual"
+                )
+                data_init = [trace_surface, trace_opt, trace_path, trace_actual]
+            else:
+                pop0 = np.asarray(f0)
+                z_pop0 = f_eval_population(pop0)
+                trace_pop = go.Scatter3d(
+                    x=pop0[:, 0], y=pop0[:, 1], z=z_pop0,
+                    mode="markers",
+                    marker=dict(color="white", size=5, opacity=0.9, line=dict(color="black", width=1)),
+                    name="Población"
+                )
+                data_init = [trace_surface, trace_opt, trace_pop]
+
+            frames = []
+            for step, k in enumerate(sel):
+                evals_k = res.eval_trace[k] if k < len(res.eval_trace) else res.n_equiv
+                fbest_k = res.history[k] if k < len(res.history) else res.f_best
+                frame_title = f"{res.algorithm.upper()} | {res.problem.capitalize()} (Superficie 3D) | Evals: {evals_k} | f_best: {fbest_k:.2e}"
+
+                if es_trayectoria:
+                    P_k = np.array([res.frames[i][:2] for i in sel[:step + 1]])
+                    Z_k = np.array([f_eval_point(p) for p in P_k])
+                    pt_k = res.frames[k]
+                    z_k = f_eval_point(pt_k[:2])
+                    fr_data = [
+                        trace_surface,
+                        trace_opt,
+                        go.Scatter3d(x=P_k[:, 0], y=P_k[:, 1], z=Z_k, mode="lines+markers",
+                                     line=dict(color="cyan", width=5), marker=dict(color="yellow", size=4)),
+                        go.Scatter3d(x=[pt_k[0]], y=[pt_k[1]], z=[z_k], mode="markers",
+                                     marker=dict(color="red", size=8, line=dict(color="white", width=2)))
+                    ]
+                else:
+                    pop_k = np.asarray(res.frames[k])
+                    z_pop_k = f_eval_population(pop_k)
+                    fr_data = [
+                        trace_surface,
+                        trace_opt,
+                        go.Scatter3d(x=pop_k[:, 0], y=pop_k[:, 1], z=z_pop_k, mode="markers",
+                                     marker=dict(color="white", size=5, opacity=0.9, line=dict(color="black", width=1)))
+                    ]
+                frames.append(go.Frame(data=fr_data, name=str(step), layout=go.Layout(title=frame_title)))
+
+            slider_steps = [
+                dict(
+                    method="animate",
+                    args=[[str(step)], dict(mode="immediate", frame=dict(duration=100, redraw=True), transition=dict(duration=0))],
+                    label=f"{res.eval_trace[k] if k < len(res.eval_trace) else k}"
+                )
+                for step, k in enumerate(sel)
+            ]
+
+            updatemenus = [
+                dict(
+                    type="buttons",
+                    showactive=False,
+                    x=0.05, y=-0.1,
+                    buttons=[
+                        dict(label="▶ Reproducir", method="animate",
+                             args=[None, dict(frame=dict(duration=120, redraw=True), fromcurrent=True, mode="immediate")]),
+                        dict(label="⏸ Pausar", method="animate",
+                             args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")])
+                    ]
+                )
+            ]
+
+            sliders = [dict(
+                steps=slider_steps,
+                active=0,
+                x=0.25, y=-0.08, len=0.72,
+                currentvalue=dict(font=dict(size=12), prefix="Evaluaciones: ", visible=True, xanchor="right")
+            )]
+
+            fig = go.Figure(
+                data=data_init,
+                layout=go.Layout(
+                    title=f"{res.algorithm.upper()} | {res.problem.capitalize()} Superficie 3D | f_best = {res.f_best:.3e}",
+                    scene=dict(
+                        xaxis=dict(title="x₁", range=[lim_inf, lim_sup]),
+                        yaxis=dict(title="x₂", range=[lim_inf, lim_sup]),
+                        zaxis=dict(title="f(x₁, x₂)"),
+                        camera=dict(eye=dict(x=1.6, y=-1.6, z=1.2))
+                    ),
+                    updatemenus=updatemenus,
+                    sliders=sliders,
+                    template="plotly_dark",
+                    width=850, height=650
+                ),
+                frames=frames
+            )
+
+        else:
+            # Modo 2D Contorno clásico
+            g = np.linspace(lim_inf, lim_sup, 120)
+            X, Y = np.meshgrid(g, g)
+            if res.problem == "rosenbrock":
+                Z = 100.0 * (Y - X ** 2) ** 2 + (1.0 - X) ** 2
+            elif res.problem == "rastrigin":
+                Z = 20.0 + (X ** 2 - 10.0 * np.cos(2 * np.pi * X)) + (Y ** 2 - 10.0 * np.cos(2 * np.pi * Y))
+            else:
+                grid_pts = np.column_stack([X.ravel(), Y.ravel()])
+                Z = np.array([spec["func"](p) for p in grid_pts]).reshape(X.shape)
+
+            trace_contour = go.Contour(
+                x=g, y=g, z=Z,
+                colorscale="Viridis",
+                contours=dict(showlines=False),
+                opacity=0.75,
+                showscale=True,
+                colorbar=dict(title="f(x)", len=0.8),
+                hoverinfo="none",
+                name="Superficie f(x)"
+            )
+
+            trace_opt = go.Scatter(
+                x=[optimo[0]] if optimo is not None else [],
+                y=[optimo[1]] if optimo is not None else [],
+                mode="markers",
+                marker=dict(symbol="star", size=15, color="red", line=dict(color="black", width=1.5)),
+                name=f"Óptimo ({optimo[0]:g}, {optimo[1]:g})" if optimo is not None else "Óptimo",
+                hoverinfo="name"
+            )
+
+            idx0 = sel[0]
+            f0 = res.frames[idx0]
+            if es_trayectoria:
+                P_init = np.array([res.frames[i][:2] for i in sel[:1]])
+                trace_path = go.Scatter(
+                    x=P_init[:, 0], y=P_init[:, 1],
+                    mode="lines+markers",
+                    line=dict(color="white", width=2),
+                    marker=dict(color="cyan", size=6),
+                    name="Trayectoria"
+                )
+                trace_actual = go.Scatter(
+                    x=[f0[0]], y=[f0[1]],
+                    mode="markers",
+                    marker=dict(color="yellow", size=12, line=dict(color="black", width=2)),
+                    name="Punto actual"
+                )
+                data_init = [trace_contour, trace_opt, trace_path, trace_actual]
+            else:
+                pop0 = np.asarray(f0)
+                trace_pop = go.Scatter(
+                    x=pop0[:, 0], y=pop0[:, 1],
+                    mode="markers",
+                    marker=dict(color="white", size=8, line=dict(color="black", width=1)),
+                    name="Población"
+                )
+                data_init = [trace_contour, trace_opt, trace_pop]
+
+            frames = []
+            for step, k in enumerate(sel):
+                evals_k = res.eval_trace[k] if k < len(res.eval_trace) else res.n_equiv
+                fbest_k = res.history[k] if k < len(res.history) else res.f_best
+                frame_title = f"{res.algorithm.upper()} | {res.problem.capitalize()} 2D | Evals: {evals_k} | f_best: {fbest_k:.2e}"
+
+                if es_trayectoria:
+                    P_k = np.array([res.frames[i][:2] for i in sel[:step + 1]])
+                    pt_k = res.frames[k]
+                    fr_data = [
+                        trace_contour,
+                        trace_opt,
+                        go.Scatter(x=P_k[:, 0], y=P_k[:, 1], mode="lines+markers",
+                                   line=dict(color="white", width=2), marker=dict(color="cyan", size=6)),
+                        go.Scatter(x=[pt_k[0]], y=[pt_k[1]], mode="markers",
+                                   marker=dict(color="yellow", size=12, line=dict(color="black", width=2)))
+                    ]
+                else:
+                    pop_k = np.asarray(res.frames[k])
+                    fr_data = [
+                        trace_contour,
+                        trace_opt,
+                        go.Scatter(x=pop_k[:, 0], y=pop_k[:, 1], mode="markers",
+                                   marker=dict(color="white", size=8, line=dict(color="black", width=1)))
+                    ]
+                frames.append(go.Frame(data=fr_data, name=str(step), layout=go.Layout(title=frame_title)))
+
+            slider_steps = [
+                dict(
+                    method="animate",
+                    args=[[str(step)], dict(mode="immediate", frame=dict(duration=100, redraw=True), transition=dict(duration=0))],
+                    label=f"{res.eval_trace[k] if k < len(res.eval_trace) else k}"
+                )
+                for step, k in enumerate(sel)
+            ]
+
+            updatemenus = [
+                dict(
+                    type="buttons",
+                    showactive=False,
+                    x=0.05, y=-0.18,
+                    buttons=[
+                        dict(label="▶ Reproducir", method="animate",
+                             args=[None, dict(frame=dict(duration=120, redraw=True), fromcurrent=True, mode="immediate")]),
+                        dict(label="⏸ Pausar", method="animate",
+                             args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")])
+                    ]
+                )
+            ]
+
+            sliders = [dict(
+                steps=slider_steps,
+                active=0,
+                x=0.25, y=-0.15, len=0.72,
+                currentvalue=dict(font=dict(size=12), prefix="Evaluaciones: ", visible=True, xanchor="right")
+            )]
+
+            fig = go.Figure(
+                data=data_init,
+                layout=go.Layout(
+                    title=f"{res.algorithm.upper()} | {res.problem.capitalize()} 2D | f_best = {res.f_best:.3e}",
+                    xaxis=dict(title="x₁", range=[lim_inf, lim_sup], zeroline=False),
+                    yaxis=dict(title="x₂", range=[lim_inf, lim_sup], zeroline=False),
+                    updatemenus=updatemenus,
+                    sliders=sliders,
+                    template="plotly_dark",
+                    width=800, height=640
+                ),
+                frames=frames
+            )
+
+    elif res.dim == 3:
+        # Grilla 3D para isosuperficies de nivel de f(x₁, x₂, x₃)
+        n_grid3 = 20
+        g3 = np.linspace(lim_inf, lim_sup, n_grid3)
+        X3, Y3, Z3 = np.meshgrid(g3, g3, g3, indexing="ij")
+        grid_pts3 = np.column_stack([X3.ravel(), Y3.ravel(), Z3.ravel()])
+        func3 = spec["func"]
+        vals3 = np.array([func3(p) for p in grid_pts3])
+
+        v_min_iso = float(np.percentile(vals3, 5))
+        v_max_iso = float(np.percentile(vals3, 75))
+
+        trace_iso = go.Isosurface(
+            x=X3.flatten(),
+            y=Y3.flatten(),
+            z=Z3.flatten(),
+            value=vals3.flatten(),
+            isomin=v_min_iso,
+            isomax=v_max_iso,
+            surface_count=3,
+            opacity=0.22,
             colorscale="Viridis",
-            contours=dict(showlines=False),
-            opacity=0.75,
+            caps=dict(x_show=False, y_show=False, z_show=False),
             showscale=True,
-            colorbar=dict(title="f(x)", len=0.8),
-            hoverinfo="none",
+            colorbar=dict(title="f(x) nivel", len=0.75),
             name="Superficie f(x)"
         )
 
-        trace_opt = go.Scatter(
-            x=[optimo[0]] if optimo is not None else [],
-            y=[optimo[1]] if optimo is not None else [],
-            mode="markers",
-            marker=dict(symbol="star", size=15, color="red", line=dict(color="black", width=1.5)),
-            name=f"Óptimo ({optimo[0]:g}, {optimo[1]:g})" if optimo is not None else "Óptimo",
-            hoverinfo="name"
-        )
-
-        idx0 = sel[0]
-        f0 = res.frames[idx0]
-        if es_trayectoria:
-            P_init = np.array([res.frames[i][:2] for i in sel[:1]])
-            trace_path = go.Scatter(
-                x=P_init[:, 0], y=P_init[:, 1],
-                mode="lines+markers",
-                line=dict(color="white", width=2),
-                marker=dict(color="cyan", size=6),
-                name="Trayectoria"
-            )
-            trace_actual = go.Scatter(
-                x=[f0[0]], y=[f0[1]],
-                mode="markers",
-                marker=dict(color="yellow", size=12, line=dict(color="black", width=2)),
-                name="Punto actual"
-            )
-            data_init = [trace_contour, trace_opt, trace_path, trace_actual]
-        else:
-            pop0 = np.asarray(f0)
-            trace_pop = go.Scatter(
-                x=pop0[:, 0], y=pop0[:, 1],
-                mode="markers",
-                marker=dict(color="white", size=8, line=dict(color="black", width=1)),
-                name="Población"
-            )
-            data_init = [trace_contour, trace_opt, trace_pop]
-
-        frames = []
-        for step, k in enumerate(sel):
-            evals_k = res.eval_trace[k] if k < len(res.eval_trace) else res.n_equiv
-            fbest_k = res.history[k] if k < len(res.history) else res.f_best
-            frame_title = f"{res.algorithm.upper()} | {res.problem.capitalize()} 2D | Evals: {evals_k} | f_best: {fbest_k:.2e}"
-
-            if es_trayectoria:
-                P_k = np.array([res.frames[i][:2] for i in sel[:step + 1]])
-                pt_k = res.frames[k]
-                fr_data = [
-                    trace_contour,
-                    trace_opt,
-                    go.Scatter(x=P_k[:, 0], y=P_k[:, 1], mode="lines+markers",
-                               line=dict(color="white", width=2), marker=dict(color="cyan", size=6)),
-                    go.Scatter(x=[pt_k[0]], y=[pt_k[1]], mode="markers",
-                               marker=dict(color="yellow", size=12, line=dict(color="black", width=2)))
-                ]
-            else:
-                pop_k = np.asarray(res.frames[k])
-                fr_data = [
-                    trace_contour,
-                    trace_opt,
-                    go.Scatter(x=pop_k[:, 0], y=pop_k[:, 1], mode="markers",
-                               marker=dict(color="white", size=8, line=dict(color="black", width=1)))
-                ]
-            frames.append(go.Frame(data=fr_data, name=str(step), layout=go.Layout(title=frame_title)))
-
-        slider_steps = [
-            dict(
-                method="animate",
-                args=[[str(step)], dict(mode="immediate", frame=dict(duration=100, redraw=True), transition=dict(duration=0))],
-                label=f"{res.eval_trace[k] if k < len(res.eval_trace) else k}"
-            )
-            for step, k in enumerate(sel)
-        ]
-
-        updatemenus = [
-            dict(
-                type="buttons",
-                showactive=False,
-                x=0.05, y=-0.18,
-                buttons=[
-                    dict(label="▶ Reproducir", method="animate",
-                         args=[None, dict(frame=dict(duration=120, redraw=True), fromcurrent=True, mode="immediate")]),
-                    dict(label="⏸ Pausar", method="animate",
-                         args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")])
-                ]
-            )
-        ]
-
-        sliders = [dict(
-            steps=slider_steps,
-            active=0,
-            x=0.25, y=-0.15, len=0.72,
-            currentvalue=dict(font=dict(size=12), prefix="Evaluaciones: ", visible=True, xanchor="right")
-        )]
-
-        fig = go.Figure(
-            data=data_init,
-            layout=go.Layout(
-                title=f"{res.algorithm.upper()} | {res.problem.capitalize()} 2D | f_best = {res.f_best:.3e}",
-                xaxis=dict(title="x₁", range=[lim_inf, lim_sup], zeroline=False),
-                yaxis=dict(title="x₂", range=[lim_inf, lim_sup], zeroline=False),
-                updatemenus=updatemenus,
-                sliders=sliders,
-                template="plotly_dark",
-                width=800, height=640
-            ),
-            frames=frames
-        )
-
-    elif res.dim == 3:
         trace_opt = go.Scatter3d(
             x=[optimo[0]] if optimo is not None else [],
             y=[optimo[1]] if optimo is not None else [],
             z=[optimo[2]] if optimo is not None else [],
             mode="markers",
-            marker=dict(symbol="diamond", size=10, color="red", line=dict(color="black", width=1)),
+            marker=dict(symbol="diamond", size=10, color="red", line=dict(color="black", width=2)),
             name=f"Óptimo ({optimo[0]:g}, {optimo[1]:g}, {optimo[2]:g})" if optimo is not None else "Óptimo"
         )
 
@@ -643,26 +833,26 @@ def graficar_optimizacion(res: OptimizeResult, max_frames: int = 60, mostrar: bo
             trace_path = go.Scatter3d(
                 x=P_init[:, 0], y=P_init[:, 1], z=P_init[:, 2],
                 mode="lines+markers",
-                line=dict(color="cyan", width=4),
+                line=dict(color="cyan", width=5),
                 marker=dict(color="yellow", size=4),
                 name="Trayectoria 3D"
             )
             trace_actual = go.Scatter3d(
                 x=[f0[0]], y=[f0[1]], z=[f0[2]],
                 mode="markers",
-                marker=dict(color="red", size=8),
+                marker=dict(color="red", size=8, line=dict(color="white", width=2)),
                 name="Punto actual"
             )
-            data_init = [trace_opt, trace_path, trace_actual]
+            data_init = [trace_iso, trace_opt, trace_path, trace_actual]
         else:
             pop0 = np.asarray(f0)
             trace_pop = go.Scatter3d(
                 x=pop0[:, 0], y=pop0[:, 1], z=pop0[:, 2],
                 mode="markers",
-                marker=dict(color="cyan", size=5, opacity=0.8),
+                marker=dict(color="white", size=5, opacity=0.9, line=dict(color="black", width=1)),
                 name="Población 3D"
             )
-            data_init = [trace_opt, trace_pop]
+            data_init = [trace_iso, trace_opt, trace_pop]
 
         frames = []
         for step, k in enumerate(sel):
@@ -674,18 +864,20 @@ def graficar_optimizacion(res: OptimizeResult, max_frames: int = 60, mostrar: bo
                 P_k = np.array([res.frames[i] for i in sel[:step + 1]])
                 pt_k = res.frames[k]
                 fr_data = [
+                    trace_iso,
                     trace_opt,
                     go.Scatter3d(x=P_k[:, 0], y=P_k[:, 1], z=P_k[:, 2], mode="lines+markers",
-                                 line=dict(color="cyan", width=4), marker=dict(color="yellow", size=4)),
+                                 line=dict(color="cyan", width=5), marker=dict(color="yellow", size=4)),
                     go.Scatter3d(x=[pt_k[0]], y=[pt_k[1]], z=[pt_k[2]], mode="markers",
-                                 marker=dict(color="red", size=8))
+                                 marker=dict(color="red", size=8, line=dict(color="white", width=2)))
                 ]
             else:
                 pop_k = np.asarray(res.frames[k])
                 fr_data = [
+                    trace_iso,
                     trace_opt,
                     go.Scatter3d(x=pop_k[:, 0], y=pop_k[:, 1], z=pop_k[:, 2], mode="markers",
-                                 marker=dict(color="cyan", size=5, opacity=0.8))
+                                 marker=dict(color="white", size=5, opacity=0.9, line=dict(color="black", width=1)))
                 ]
             frames.append(go.Frame(data=fr_data, name=str(step), layout=go.Layout(title=frame_title)))
 
@@ -722,16 +914,17 @@ def graficar_optimizacion(res: OptimizeResult, max_frames: int = 60, mostrar: bo
         fig = go.Figure(
             data=data_init,
             layout=go.Layout(
-                title=f"{res.algorithm.upper()} | {res.problem.capitalize()} 3D | f_best = {res.f_best:.3e}",
+                title=f"{res.algorithm.upper()} | {res.problem.capitalize()} 3D (Superficie de nivel) | f_best = {res.f_best:.3e}",
                 scene=dict(
                     xaxis=dict(title="x₁", range=[lim_inf, lim_sup]),
                     yaxis=dict(title="x₂", range=[lim_inf, lim_sup]),
                     zaxis=dict(title="x₃", range=[lim_inf, lim_sup]),
+                    camera=dict(eye=dict(x=1.6, y=-1.6, z=1.2))
                 ),
                 updatemenus=updatemenus,
                 sliders=sliders,
                 template="plotly_dark",
-                width=800, height=650
+                width=850, height=650
             ),
             frames=frames
         )
