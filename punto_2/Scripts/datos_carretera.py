@@ -4,7 +4,7 @@ import csv
 import json
 import urllib.request
 
-from datos_tsp import CAPITALES, CIUDADES
+from Trabajos.trabajo_1.T01_REDES_NEURONALES_.punto_2.Scripts.datos_tsp import CAPITALES, CIUDADES
 
 # OSRM espera "lon,lat" separados por ';'
 coords = ";".join(f"{lon},{lat}" for _, lat, lon in CAPITALES)
