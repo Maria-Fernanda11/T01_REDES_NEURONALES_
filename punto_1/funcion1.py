@@ -148,7 +148,8 @@ class OptimizeResult:
     n_equiv: int
     history: list = field(default_factory=list, repr=False)     # mejor f por iteración
     eval_trace: list = field(default_factory=list, repr=False)  # n_equiv en cada iteración
-    frames: list | None = field(default=None, repr=False)       # para GIF
+    frames: list | None = field(default=None, repr=False)       # para animación / GIF
+    fig: object | None = field(default=None, repr=False)        # figura interactiva de Plotly
 
     def __str__(self) -> str:
         return (
@@ -235,7 +236,7 @@ def genetic(obj, dim, bounds, rng, max_evals, record=False,
     poblacion = rng.uniform(lim_inf, lim_sup, (tam_poblacion, dim))
     aptitud = np.array([obj(p) for p in poblacion])
     historial, traza_evals = [float(aptitud.min())], [obj.n_equiv]
-    frames = [poblacion[:, :2].copy()] if record else None
+    frames = [poblacion.copy()] if record else None
 
     while obj.n_equiv + n_hijos <= max_evals:
         sigma = sigma_inicial * rango * (sigma_final / sigma_inicial) ** (obj.n_equiv / max_evals)
@@ -260,7 +261,7 @@ def genetic(obj, dim, bounds, rng, max_evals, record=False,
         historial.append(float(aptitud.min()))
         traza_evals.append(obj.n_equiv)
         if record:
-            frames.append(poblacion[:, :2].copy())
+            frames.append(poblacion.copy())
     i = int(aptitud.argmin())
     return poblacion[i].copy(), float(aptitud[i]), historial, traza_evals, frames
 
@@ -281,7 +282,7 @@ def pso(obj, dim, bounds, rng, max_evals, record=False,
     g = int(aptitud_personal.argmin())
     mejor_global, aptitud_global = mejor_personal[g].copy(), float(aptitud_personal[g])
     historial, traza_evals = [aptitud_global], [obj.n_equiv]
-    frames = [posiciones[:, :2].copy()] if record else None
+    frames = [posiciones.copy()] if record else None
 
     while obj.n_equiv + num_particulas <= max_evals:
         r1 = rng.random((num_particulas, dim))
@@ -301,7 +302,7 @@ def pso(obj, dim, bounds, rng, max_evals, record=False,
         historial.append(aptitud_global)
         traza_evals.append(obj.n_equiv)
         if record:
-            frames.append(posiciones[:, :2].copy())
+            frames.append(posiciones.copy())
     return mejor_global, aptitud_global, historial, traza_evals, frames
 
 
@@ -317,7 +318,7 @@ def differential_evolution(obj, dim, bounds, rng, max_evals, record=False,
     poblacion = rng.uniform(lim_inf, lim_sup, (tam_poblacion, dim))
     aptitud = np.array([obj(p) for p in poblacion])
     historial, traza_evals = [float(aptitud.min())], [obj.n_equiv]
-    frames = [poblacion[:, :2].copy()] if record else None
+    frames = [poblacion.copy()] if record else None
     filas = np.arange(tam_poblacion)
 
     while obj.n_equiv + tam_poblacion <= max_evals:
@@ -337,7 +338,7 @@ def differential_evolution(obj, dim, bounds, rng, max_evals, record=False,
         historial.append(float(aptitud.min()))
         traza_evals.append(obj.n_equiv)
         if record:
-            frames.append(poblacion[:, :2].copy())
+            frames.append(poblacion.copy())
     i = int(aptitud.argmin())
     return poblacion[i].copy(), float(aptitud[i]), historial, traza_evals, frames
 
@@ -349,6 +350,7 @@ def random_search(obj, dim, bounds, rng, max_evals, record=False):
     mejor_x = rng.uniform(lim_inf, lim_sup, dim)
     mejor_f = obj(mejor_x)
     historial, traza_evals = [mejor_f], [obj.n_equiv]
+    frames = [mejor_x.copy()] if record else None
     while obj.n_equiv + 1 <= max_evals:
         candidato_x = rng.uniform(lim_inf, lim_sup, dim)
         f_candidato = obj(candidato_x)
@@ -356,7 +358,9 @@ def random_search(obj, dim, bounds, rng, max_evals, record=False):
             mejor_x, mejor_f = candidato_x, f_candidato
         historial.append(mejor_f)
         traza_evals.append(obj.n_equiv)
-    return mejor_x, mejor_f, historial, traza_evals, None
+        if record:
+            frames.append(mejor_x.copy())
+    return mejor_x, mejor_f, historial, traza_evals, frames
 
 
 @register_algorithm("simulated_annealing")
@@ -392,7 +396,7 @@ MAIN_ALGOS = ("gradient_descent", "genetic", "pso", "differential_evolution")
 # 5. Punto de entrada
 # ======================================================================
 def optimize(algorithm="gradient_descent", problem="rosenbrock", dim=2,
-             random_seed=42, max_evals=20000, record=False,
+             random_seed=42, max_evals=20000, record=False, plot=False,
              **algo_params) -> OptimizeResult:
     if algorithm not in ALGORITHMS:
         raise ValueError(f"Algoritmo '{algorithm}' no registrado. Opciones: {sorted(ALGORITHMS)}")
@@ -407,14 +411,27 @@ def optimize(algorithm="gradient_descent", problem="rosenbrock", dim=2,
         raise ValueError(f"Parámetros inválidos para '{algorithm}': {sorted(bad)}. "
                          f"Válidos: {sorted(accepted_params(algorithm))}")
 
+    if plot:
+        record = True
+
     rng = np.random.default_rng(random_seed)
     obj = CountedObjective(spec["func"], dim)
     x_best, f_best, hist, ev, frames = ALGORITHMS[algorithm](
         obj, dim, spec["bounds"], rng, max_evals, record, **algo_params)
     assert obj.raw_calls == obj.n_f + obj.cost_grad * obj.n_grad, "conteo inconsistente"
-    return OptimizeResult(problem, algorithm, dim, random_seed,
-                          np.asarray(x_best, dtype=float), float(f_best),
-                          obj.n_f, obj.n_grad, obj.n_equiv, hist, ev, frames)
+    res = OptimizeResult(problem, algorithm, dim, random_seed,
+                         np.asarray(x_best, dtype=float), float(f_best),
+                         obj.n_f, obj.n_grad, obj.n_equiv, hist, ev, frames)
+    if plot:
+        res.fig = graficar_optimizacion(res, mostrar=False)
+        try:
+            from IPython import get_ipython
+            from IPython.display import display
+            if get_ipython() is not None:
+                display(res.fig)
+        except Exception:
+            pass
+    return res
 
 
 # ======================================================================
@@ -443,8 +460,286 @@ def run_batch(algorithm, problem, dim, n_runs, seed0, max_evals, threshold, para
 
 
 # ======================================================================
-# 7. GIF (solo dim=2)
+# 7. Graficación Interactiva y Animada (Plotly 2D y 3D) y GIF
 # ======================================================================
+def graficar_optimizacion(res: OptimizeResult, max_frames: int = 60, mostrar: bool = False):
+    """
+    Genera una animación interactiva en Plotly del proceso de optimización
+    tanto para dimensión 2 como para dimensión 3.
+
+    Parámetros:
+        res        : Objeto OptimizeResult resultante de optimize().
+        max_frames : Número máximo de fotogramas en la animación.
+        mostrar    : Si True, intenta desplegar la figura en el entorno.
+    """
+    import plotly.graph_objects as go
+
+    if res.frames is None or len(res.frames) == 0:
+        raise ValueError("El resultado no contiene frames. Ejecute optimize(..., record=True o plot=True).")
+
+    spec = PROBLEMS[res.problem]
+    lim_inf, lim_sup = spec["bounds"]
+    optimo = spec["known_optimum"](res.dim) if spec["known_optimum"] else None
+    n_raw = len(res.frames)
+    sel = np.unique(np.linspace(0, n_raw - 1, min(n_raw, max_frames)).astype(int))
+
+    es_trayectoria = np.ndim(res.frames[0]) == 1
+
+    if res.dim == 2:
+        g = np.linspace(lim_inf, lim_sup, 120)
+        X, Y = np.meshgrid(g, g)
+        if res.problem == "rosenbrock":
+            Z = 100.0 * (Y - X ** 2) ** 2 + (1.0 - X) ** 2
+        elif res.problem == "rastrigin":
+            Z = 20.0 + (X ** 2 - 10.0 * np.cos(2 * np.pi * X)) + (Y ** 2 - 10.0 * np.cos(2 * np.pi * Y))
+        else:
+            grid_pts = np.column_stack([X.ravel(), Y.ravel()])
+            Z = np.array([spec["func"](p) for p in grid_pts]).reshape(X.shape)
+
+        trace_contour = go.Contour(
+            x=g, y=g, z=Z,
+            colorscale="Viridis",
+            contours=dict(showlines=False),
+            opacity=0.75,
+            showscale=True,
+            colorbar=dict(title="f(x)", len=0.8),
+            hoverinfo="none",
+            name="Superficie f(x)"
+        )
+
+        trace_opt = go.Scatter(
+            x=[optimo[0]] if optimo is not None else [],
+            y=[optimo[1]] if optimo is not None else [],
+            mode="markers",
+            marker=dict(symbol="star", size=15, color="red", line=dict(color="black", width=1.5)),
+            name=f"Óptimo ({optimo[0]:g}, {optimo[1]:g})" if optimo is not None else "Óptimo",
+            hoverinfo="name"
+        )
+
+        idx0 = sel[0]
+        f0 = res.frames[idx0]
+        if es_trayectoria:
+            P_init = np.array([res.frames[i][:2] for i in sel[:1]])
+            trace_path = go.Scatter(
+                x=P_init[:, 0], y=P_init[:, 1],
+                mode="lines+markers",
+                line=dict(color="white", width=2),
+                marker=dict(color="cyan", size=6),
+                name="Trayectoria"
+            )
+            trace_actual = go.Scatter(
+                x=[f0[0]], y=[f0[1]],
+                mode="markers",
+                marker=dict(color="yellow", size=12, line=dict(color="black", width=2)),
+                name="Punto actual"
+            )
+            data_init = [trace_contour, trace_opt, trace_path, trace_actual]
+        else:
+            pop0 = np.asarray(f0)
+            trace_pop = go.Scatter(
+                x=pop0[:, 0], y=pop0[:, 1],
+                mode="markers",
+                marker=dict(color="white", size=8, line=dict(color="black", width=1)),
+                name="Población"
+            )
+            data_init = [trace_contour, trace_opt, trace_pop]
+
+        frames = []
+        for step, k in enumerate(sel):
+            evals_k = res.eval_trace[k] if k < len(res.eval_trace) else res.n_equiv
+            fbest_k = res.history[k] if k < len(res.history) else res.f_best
+            frame_title = f"{res.algorithm.upper()} | {res.problem.capitalize()} 2D | Evals: {evals_k} | f_best: {fbest_k:.2e}"
+
+            if es_trayectoria:
+                P_k = np.array([res.frames[i][:2] for i in sel[:step + 1]])
+                pt_k = res.frames[k]
+                fr_data = [
+                    trace_contour,
+                    trace_opt,
+                    go.Scatter(x=P_k[:, 0], y=P_k[:, 1], mode="lines+markers",
+                               line=dict(color="white", width=2), marker=dict(color="cyan", size=6)),
+                    go.Scatter(x=[pt_k[0]], y=[pt_k[1]], mode="markers",
+                               marker=dict(color="yellow", size=12, line=dict(color="black", width=2)))
+                ]
+            else:
+                pop_k = np.asarray(res.frames[k])
+                fr_data = [
+                    trace_contour,
+                    trace_opt,
+                    go.Scatter(x=pop_k[:, 0], y=pop_k[:, 1], mode="markers",
+                               marker=dict(color="white", size=8, line=dict(color="black", width=1)))
+                ]
+            frames.append(go.Frame(data=fr_data, name=str(step), layout=go.Layout(title=frame_title)))
+
+        slider_steps = [
+            dict(
+                method="animate",
+                args=[[str(step)], dict(mode="immediate", frame=dict(duration=100, redraw=True), transition=dict(duration=0))],
+                label=f"{res.eval_trace[k] if k < len(res.eval_trace) else k}"
+            )
+            for step, k in enumerate(sel)
+        ]
+
+        updatemenus = [
+            dict(
+                type="buttons",
+                showactive=False,
+                x=0.05, y=-0.18,
+                buttons=[
+                    dict(label="▶ Reproducir", method="animate",
+                         args=[None, dict(frame=dict(duration=120, redraw=True), fromcurrent=True, mode="immediate")]),
+                    dict(label="⏸ Pausar", method="animate",
+                         args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")])
+                ]
+            )
+        ]
+
+        sliders = [dict(
+            steps=slider_steps,
+            active=0,
+            x=0.25, y=-0.15, len=0.72,
+            currentvalue=dict(font=dict(size=12), prefix="Evaluaciones: ", visible=True, xanchor="right")
+        )]
+
+        fig = go.Figure(
+            data=data_init,
+            layout=go.Layout(
+                title=f"{res.algorithm.upper()} | {res.problem.capitalize()} 2D | f_best = {res.f_best:.3e}",
+                xaxis=dict(title="x₁", range=[lim_inf, lim_sup], zeroline=False),
+                yaxis=dict(title="x₂", range=[lim_inf, lim_sup], zeroline=False),
+                updatemenus=updatemenus,
+                sliders=sliders,
+                template="plotly_dark",
+                width=800, height=640
+            ),
+            frames=frames
+        )
+
+    elif res.dim == 3:
+        trace_opt = go.Scatter3d(
+            x=[optimo[0]] if optimo is not None else [],
+            y=[optimo[1]] if optimo is not None else [],
+            z=[optimo[2]] if optimo is not None else [],
+            mode="markers",
+            marker=dict(symbol="diamond", size=10, color="red", line=dict(color="black", width=1)),
+            name=f"Óptimo ({optimo[0]:g}, {optimo[1]:g}, {optimo[2]:g})" if optimo is not None else "Óptimo"
+        )
+
+        idx0 = sel[0]
+        f0 = res.frames[idx0]
+        if es_trayectoria:
+            P_init = np.array([res.frames[i] for i in sel[:1]])
+            trace_path = go.Scatter3d(
+                x=P_init[:, 0], y=P_init[:, 1], z=P_init[:, 2],
+                mode="lines+markers",
+                line=dict(color="cyan", width=4),
+                marker=dict(color="yellow", size=4),
+                name="Trayectoria 3D"
+            )
+            trace_actual = go.Scatter3d(
+                x=[f0[0]], y=[f0[1]], z=[f0[2]],
+                mode="markers",
+                marker=dict(color="red", size=8),
+                name="Punto actual"
+            )
+            data_init = [trace_opt, trace_path, trace_actual]
+        else:
+            pop0 = np.asarray(f0)
+            trace_pop = go.Scatter3d(
+                x=pop0[:, 0], y=pop0[:, 1], z=pop0[:, 2],
+                mode="markers",
+                marker=dict(color="cyan", size=5, opacity=0.8),
+                name="Población 3D"
+            )
+            data_init = [trace_opt, trace_pop]
+
+        frames = []
+        for step, k in enumerate(sel):
+            evals_k = res.eval_trace[k] if k < len(res.eval_trace) else res.n_equiv
+            fbest_k = res.history[k] if k < len(res.history) else res.f_best
+            frame_title = f"{res.algorithm.upper()} | {res.problem.capitalize()} 3D | Evals: {evals_k} | f_best: {fbest_k:.2e}"
+
+            if es_trayectoria:
+                P_k = np.array([res.frames[i] for i in sel[:step + 1]])
+                pt_k = res.frames[k]
+                fr_data = [
+                    trace_opt,
+                    go.Scatter3d(x=P_k[:, 0], y=P_k[:, 1], z=P_k[:, 2], mode="lines+markers",
+                                 line=dict(color="cyan", width=4), marker=dict(color="yellow", size=4)),
+                    go.Scatter3d(x=[pt_k[0]], y=[pt_k[1]], z=[pt_k[2]], mode="markers",
+                                 marker=dict(color="red", size=8))
+                ]
+            else:
+                pop_k = np.asarray(res.frames[k])
+                fr_data = [
+                    trace_opt,
+                    go.Scatter3d(x=pop_k[:, 0], y=pop_k[:, 1], z=pop_k[:, 2], mode="markers",
+                                 marker=dict(color="cyan", size=5, opacity=0.8))
+                ]
+            frames.append(go.Frame(data=fr_data, name=str(step), layout=go.Layout(title=frame_title)))
+
+        slider_steps = [
+            dict(
+                method="animate",
+                args=[[str(step)], dict(mode="immediate", frame=dict(duration=100, redraw=True), transition=dict(duration=0))],
+                label=f"{res.eval_trace[k] if k < len(res.eval_trace) else k}"
+            )
+            for step, k in enumerate(sel)
+        ]
+
+        updatemenus = [
+            dict(
+                type="buttons",
+                showactive=False,
+                x=0.05, y=-0.1,
+                buttons=[
+                    dict(label="▶ Reproducir", method="animate",
+                         args=[None, dict(frame=dict(duration=120, redraw=True), fromcurrent=True, mode="immediate")]),
+                    dict(label="⏸ Pausar", method="animate",
+                         args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")])
+                ]
+            )
+        ]
+
+        sliders = [dict(
+            steps=slider_steps,
+            active=0,
+            x=0.25, y=-0.08, len=0.72,
+            currentvalue=dict(font=dict(size=12), prefix="Evaluaciones: ", visible=True, xanchor="right")
+        )]
+
+        fig = go.Figure(
+            data=data_init,
+            layout=go.Layout(
+                title=f"{res.algorithm.upper()} | {res.problem.capitalize()} 3D | f_best = {res.f_best:.3e}",
+                scene=dict(
+                    xaxis=dict(title="x₁", range=[lim_inf, lim_sup]),
+                    yaxis=dict(title="x₂", range=[lim_inf, lim_sup]),
+                    zaxis=dict(title="x₃", range=[lim_inf, lim_sup]),
+                ),
+                updatemenus=updatemenus,
+                sliders=sliders,
+                template="plotly_dark",
+                width=800, height=650
+            ),
+            frames=frames
+        )
+    else:
+        raise ValueError(f"La visualización animada está implementada para 2D y 3D (se recibió dim={res.dim}).")
+
+    if mostrar:
+        try:
+            from IPython import get_ipython
+            from IPython.display import display
+            if get_ipython() is not None:
+                display(fig)
+            else:
+                fig.show()
+        except Exception:
+            pass
+    return fig
+
+
 def make_gif(algorithm, out, dim=2, seed=42, max_evals=20000, params=None,
              max_frames=80, fps=10, problem="rosenbrock"):
     if dim != 2:
@@ -497,7 +792,7 @@ def make_gif(algorithm, out, dim=2, seed=42, max_evals=20000, params=None,
             line.set_data(P[:, 0], P[:, 1])
             pt.set_data([P[-1, 0]], [P[-1, 1]])
         else:
-            sc.set_offsets(res.frames[i])
+            sc.set_offsets(res.frames[i][:, :2])
         title.set_text(f"{algorithm} | evals={res.eval_trace[i]} | f_best={res.history[i]:.2e}")
 
     Path(out).parent.mkdir(parents=True, exist_ok=True)
