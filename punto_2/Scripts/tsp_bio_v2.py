@@ -40,7 +40,7 @@ import time
 # De acá salen directamente los datos.
 #  datos_tsp_carretera: para hacerlo con los datos por carretera
 # datos_tsp: Para hacerlo con los datos con la distancia de la matriz haversine
-from datos_tsp import CAPITALES, CIUDADES, D
+from Trabajos.trabajo_1.T01_REDES_NEURONALES_.punto_2.Scripts.datos_tsp import CAPITALES, CIUDADES, D
 
 N = len(CIUDADES)  # 47 nodos
 

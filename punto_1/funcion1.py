@@ -11,8 +11,8 @@ Comandos (todos con un solo comando, sin editar código):
     python optimizacion.py stats --runs 30 --dims 2 3
     python optimizacion.py gif   --algo gradient_descent --out figs/gd.gif
 
-Los hiperparámetros se cambian con --param (p. ej. --param lr0=0.5
---param pso.w=0.6) o con un archivo --config config.json.
+Los hiperparámetros se cambian con --param (p. ej. --param tasa_aprendizaje_inicial=0.5
+--param pso.inercia=0.6) o con un archivo --config config.json.
 """
 from __future__ import annotations
 
@@ -45,6 +45,26 @@ def rosenbrock_grad(x):
     g[1:] += 200.0 * (x[1:] - x[:-1] ** 2)
     return g
 
+def rastrigin(x):
+    """
+    Calcula la función de Rastrigin para un vector x de N dimensiones.
+    x: array_like (puede ser un vector 1D o una matriz de puntos)
+    A: constante de amplitud (por defecto 10)
+    """
+    A = 10
+    x = np.asarray(x, dtype=float)
+    return A * len(x) + np.sum(x**2 - A * np.cos(2 * np.pi * x))
+
+def rastrigin_grad(x):
+    """
+    Calcula el gradiente de la función de Rastrigin para un vector x de N dimensiones.
+    x: array_like (puede ser un vector 1D o una matriz de puntos)
+    A: constante de amplitud (por defecto 10)
+    """
+    A = 10
+    x = np.asarray(x, dtype=float)
+    return 2 * x + 2 * np.pi * A * np.sin(2 * np.pi * x)
+
 
 PROBLEMS: dict[str, dict] = {}
 
@@ -61,6 +81,10 @@ register_problem(
     known_optimum=lambda d: np.ones(d), grad=rosenbrock_grad,
 )
 
+register_problem(
+    "rastrigin", rastrigin, bounds=(-5.12, 5.12), supported_dims=(2, 3),
+    known_optimum=lambda d: np.zeros(d), grad=rastrigin_grad,
+)
 
 # ======================================================================
 # 2. Conteo de evaluaciones (f y ∇f por separado)
@@ -162,200 +186,203 @@ def accepted_params(algo: str) -> set[str]:
 # ---------------- Descenso por gradiente ----------------
 @register_algorithm("gradient_descent")
 def gradient_descent(obj, dim, bounds, rng, max_evals, record=False,
-                     tol=1e-8, h=1e-6, lr0=1.0, c=1e-4, shrink=0.5, max_ls=60):
+                     tolerancia=1e-8, paso_gradiente=1e-6, tasa_aprendizaje_inicial=1.0,
+                     factor_armijo=1e-4, factor_reduccion=0.5, max_busqueda_lineal=60):
     """x_{k+1} = P(x_k - a_k g_k), g_k por diferencias centrales, a_k por
-    Armijo con retroceso (a <- shrink*a) y P = proyección al dominio."""
-    lo, hi = bounds
-    x = rng.uniform(lo, hi, dim)       # único elemento aleatorio: el punto inicial
+    Armijo con retroceso (a <- factor_reduccion*a) y P = proyección al dominio."""
+    lim_inf, lim_sup = bounds
+    x = rng.uniform(lim_inf, lim_sup, dim)       # único elemento aleatorio: el punto inicial
     fx = obj(x)
-    hist, ev = [fx], [obj.n_equiv]
+    historial, traza_evals = [fx], [obj.n_equiv]
     frames = [x.copy()] if record else None
 
     while obj.n_equiv + obj.cost_grad + 1 <= max_evals:
-        g = obj.gradient(x, h)
-        if np.linalg.norm(g) < tol:
+        gradiente = obj.gradient(x, paso_gradiente)
+        if np.linalg.norm(gradiente) < tolerancia:
             break
-        lr, accepted = lr0, False
-        for _ in range(max_ls):
+        tasa_aprendizaje, aceptado = tasa_aprendizaje_inicial, False
+        for _ in range(max_busqueda_lineal):
             if obj.n_equiv + 1 > max_evals:
                 break
-            cand = np.clip(x - lr * g, lo, hi)
-            fc = obj(cand)
-            # Armijo con proyección: f(cand) <= f(x) - c * g.(x - cand)
-            if fc <= fx - c * float(g @ (x - cand)):
-                accepted = True
+            candidato = np.clip(x - tasa_aprendizaje * gradiente, lim_inf, lim_sup)
+            f_candidato = obj(candidato)
+            # Armijo con proyección: f(candidato) <= f(x) - factor_armijo * g.(x - candidato)
+            if f_candidato <= fx - factor_armijo * float(gradiente @ (x - candidato)):
+                aceptado = True
                 break
-            lr *= shrink
-        if not accepted or np.array_equal(cand, x):
+            tasa_aprendizaje *= factor_reduccion
+        if not aceptado or np.array_equal(candidato, x):
             break
-        x, fx = cand, fc
-        hist.append(fx)
-        ev.append(obj.n_equiv)
+        x, fx = candidato, f_candidato
+        historial.append(fx)
+        traza_evals.append(obj.n_equiv)
         if record:
             frames.append(x.copy())
-    return x, fx, hist, ev, frames
+    return x, fx, historial, traza_evals, frames
 
 
 # ---------------- Algoritmo genético (codificación real) ----------------
 @register_algorithm("genetic")
 def genetic(obj, dim, bounds, rng, max_evals, record=False,
-            pop_size=50, elite=2, tournament=3, pc=0.9, blx_alpha=0.5,
-            sigma0=0.1, sigma_end=1e-4):
-    """Selección por torneo, cruce BLX-alpha (prob. pc), mutación gaussiana por
+            tam_poblacion=50, individuos_elite=2, tam_torneo=3, prob_cruce=0.9,
+            alpha_blx=0.5, sigma_inicial=0.1, sigma_final=1e-4):
+    """Selección por torneo, cruce BLX-alpha (prob. prob_cruce), mutación gaussiana por
     gen (prob. 1/dim) con sigma decreciente (geométrico, fracción del rango) y
     elitismo."""
-    lo, hi = bounds
-    rango = hi - lo
-    n_off = pop_size - elite
-    pop = rng.uniform(lo, hi, (pop_size, dim))
-    fit = np.array([obj(p) for p in pop])
-    hist, ev = [float(fit.min())], [obj.n_equiv]
-    frames = [pop[:, :2].copy()] if record else None
+    lim_inf, lim_sup = bounds
+    rango = lim_sup - lim_inf
+    n_hijos = tam_poblacion - individuos_elite
+    poblacion = rng.uniform(lim_inf, lim_sup, (tam_poblacion, dim))
+    aptitud = np.array([obj(p) for p in poblacion])
+    historial, traza_evals = [float(aptitud.min())], [obj.n_equiv]
+    frames = [poblacion[:, :2].copy()] if record else None
 
-    while obj.n_equiv + n_off <= max_evals:
-        sigma = sigma0 * rango * (sigma_end / sigma0) ** (obj.n_equiv / max_evals)
+    while obj.n_equiv + n_hijos <= max_evals:
+        sigma = sigma_inicial * rango * (sigma_final / sigma_inicial) ** (obj.n_equiv / max_evals)
         # torneo: para cada hijo, dos padres
-        idx = rng.integers(0, pop_size, (n_off, 2, tournament))
-        best_in_t = fit[idx].argmin(axis=2)
+        idx = rng.integers(0, tam_poblacion, (n_hijos, 2, tam_torneo))
+        best_in_t = aptitud[idx].argmin(axis=2)
         win = np.take_along_axis(idx, best_in_t[..., None], axis=2)[..., 0]
-        p1, p2 = pop[win[:, 0]], pop[win[:, 1]]
+        padre1, padre2 = poblacion[win[:, 0]], poblacion[win[:, 1]]
         # BLX-alpha
-        d = np.abs(p1 - p2)
-        child = rng.uniform(np.minimum(p1, p2) - blx_alpha * d,
-                            np.maximum(p1, p2) + blx_alpha * d)
-        child = np.where((rng.random(n_off) < pc)[:, None], child, p1)
+        d = np.abs(padre1 - padre2)
+        hijos = rng.uniform(np.minimum(padre1, padre2) - alpha_blx * d,
+                            np.maximum(padre1, padre2) + alpha_blx * d)
+        hijos = np.where((rng.random(n_hijos) < prob_cruce)[:, None], hijos, padre1)
         # mutación gaussiana
-        mut = rng.random((n_off, dim)) < 1.0 / dim
-        child = np.clip(child + mut * rng.normal(0.0, sigma, (n_off, dim)), lo, hi)
-        cfit = np.array([obj(c) for c in child])
+        mut = rng.random((n_hijos, dim)) < 1.0 / dim
+        hijos = np.clip(hijos + mut * rng.normal(0.0, sigma, (n_hijos, dim)), lim_inf, lim_sup)
+        aptitud_hijos = np.array([obj(c) for c in hijos])
         # elitismo
-        order = np.argsort(fit)[:elite]
-        pop = np.vstack([pop[order], child])
-        fit = np.concatenate([fit[order], cfit])
-        hist.append(float(fit.min()))
-        ev.append(obj.n_equiv)
+        orden = np.argsort(aptitud)[:individuos_elite]
+        poblacion = np.vstack([poblacion[orden], hijos])
+        aptitud = np.concatenate([aptitud[orden], aptitud_hijos])
+        historial.append(float(aptitud.min()))
+        traza_evals.append(obj.n_equiv)
         if record:
-            frames.append(pop[:, :2].copy())
-    i = int(fit.argmin())
-    return pop[i].copy(), float(fit[i]), hist, ev, frames
+            frames.append(poblacion[:, :2].copy())
+    i = int(aptitud.argmin())
+    return poblacion[i].copy(), float(aptitud[i]), historial, traza_evals, frames
 
 
 # ---------------- PSO ----------------
 @register_algorithm("pso")
 def pso(obj, dim, bounds, rng, max_evals, record=False,
-        n_particles=30, w=0.7298, c1=1.49618, c2=1.49618, vmax_frac=0.2):
-    """v <- w v + c1 r1 (pbest - x) + c2 r2 (gbest - x);  x <- x + v.
+        num_particulas=30, inercia=0.7298, coef_cognitivo=1.49618,
+        coef_social=1.49618, frac_velocidad_max=0.2):
+    """v <- inercia v + coef_cognitivo r1 (pbest - x) + coef_social r2 (gbest - x);  x <- x + v.
     Topología global (gbest). Al tocar la frontera: x se recorta y v=0."""
-    lo, hi = bounds
-    vmax = vmax_frac * (hi - lo)
-    x = rng.uniform(lo, hi, (n_particles, dim))
-    v = rng.uniform(-vmax, vmax, (n_particles, dim))
-    fx = np.array([obj(p) for p in x])
-    pbest, pfit = x.copy(), fx.copy()
-    g = int(pfit.argmin())
-    gbest, gfit = pbest[g].copy(), float(pfit[g])
-    hist, ev = [gfit], [obj.n_equiv]
-    frames = [x[:, :2].copy()] if record else None
+    lim_inf, lim_sup = bounds
+    vel_max = frac_velocidad_max * (lim_sup - lim_inf)
+    posiciones = rng.uniform(lim_inf, lim_sup, (num_particulas, dim))
+    velocidades = rng.uniform(-vel_max, vel_max, (num_particulas, dim))
+    fx = np.array([obj(p) for p in posiciones])
+    mejor_personal, aptitud_personal = posiciones.copy(), fx.copy()
+    g = int(aptitud_personal.argmin())
+    mejor_global, aptitud_global = mejor_personal[g].copy(), float(aptitud_personal[g])
+    historial, traza_evals = [aptitud_global], [obj.n_equiv]
+    frames = [posiciones[:, :2].copy()] if record else None
 
-    while obj.n_equiv + n_particles <= max_evals:
-        r1 = rng.random((n_particles, dim))
-        r2 = rng.random((n_particles, dim))
-        v = np.clip(w * v + c1 * r1 * (pbest - x) + c2 * r2 * (gbest - x), -vmax, vmax)
-        x = x + v
-        out = (x < lo) | (x > hi)
-        x = np.clip(x, lo, hi)
-        v[out] = 0.0
-        fx = np.array([obj(p) for p in x])
-        better = fx < pfit
-        pbest[better], pfit[better] = x[better], fx[better]
-        g = int(pfit.argmin())
-        if pfit[g] < gfit:
-            gbest, gfit = pbest[g].copy(), float(pfit[g])
-        hist.append(gfit)
-        ev.append(obj.n_equiv)
+    while obj.n_equiv + num_particulas <= max_evals:
+        r1 = rng.random((num_particulas, dim))
+        r2 = rng.random((num_particulas, dim))
+        velocidades = np.clip(inercia * velocidades + coef_cognitivo * r1 * (mejor_personal - posiciones) +
+                              coef_social * r2 * (mejor_global - posiciones), -vel_max, vel_max)
+        posiciones = posiciones + velocidades
+        fuera = (posiciones < lim_inf) | (posiciones > lim_sup)
+        posiciones = np.clip(posiciones, lim_inf, lim_sup)
+        velocidades[fuera] = 0.0
+        fx = np.array([obj(p) for p in posiciones])
+        mejora = fx < aptitud_personal
+        mejor_personal[mejora], aptitud_personal[mejora] = posiciones[mejora], fx[mejora]
+        g = int(aptitud_personal.argmin())
+        if aptitud_personal[g] < aptitud_global:
+            mejor_global, aptitud_global = mejor_personal[g].copy(), float(aptitud_personal[g])
+        historial.append(aptitud_global)
+        traza_evals.append(obj.n_equiv)
         if record:
-            frames.append(x[:, :2].copy())
-    return gbest, gfit, hist, ev, frames
+            frames.append(posiciones[:, :2].copy())
+    return mejor_global, aptitud_global, historial, traza_evals, frames
 
 
 # ---------------- Evolución diferencial ----------------
 @register_algorithm("differential_evolution")
 def differential_evolution(obj, dim, bounds, rng, max_evals, record=False,
-                           pop_size=40, F=0.5, CR=0.9):
-    """DE/rand/1/bin:  v = x_a + F (x_b - x_c);  cruce binomial con CR (al
+                           tam_poblacion=40, factor_mutacion=0.5, tasa_cruce=0.9):
+    """DE/rand/1/bin:  v = x_a + factor_mutacion (x_b - x_c);  cruce binomial con tasa_cruce (al
     menos un gen del mutante);  selección voraz  u reemplaza a x si f(u)<=f(x)."""
-    if pop_size < 4:
-        raise ValueError("DE requiere pop_size >= 4")
-    lo, hi = bounds
-    pop = rng.uniform(lo, hi, (pop_size, dim))
-    fit = np.array([obj(p) for p in pop])
-    hist, ev = [float(fit.min())], [obj.n_equiv]
-    frames = [pop[:, :2].copy()] if record else None
-    rows = np.arange(pop_size)
+    if tam_poblacion < 4:
+        raise ValueError("DE requiere tam_poblacion >= 4")
+    lim_inf, lim_sup = bounds
+    poblacion = rng.uniform(lim_inf, lim_sup, (tam_poblacion, dim))
+    aptitud = np.array([obj(p) for p in poblacion])
+    historial, traza_evals = [float(aptitud.min())], [obj.n_equiv]
+    frames = [poblacion[:, :2].copy()] if record else None
+    filas = np.arange(tam_poblacion)
 
-    while obj.n_equiv + pop_size <= max_evals:
+    while obj.n_equiv + tam_poblacion <= max_evals:
         # tres índices distintos entre sí y distintos de i
-        r = rng.random((pop_size, pop_size))
-        r[rows, rows] = 2.0
+        r = rng.random((tam_poblacion, tam_poblacion))
+        r[filas, filas] = 2.0
         a, b, c = np.argsort(r, axis=1)[:, :3].T
-        mutant = pop[a] + F * (pop[b] - pop[c])
-        mask = rng.random((pop_size, dim)) < CR
-        mask[rows, rng.integers(0, dim, pop_size)] = True
-        trial = np.where(mask, mutant, pop)
-        out = (trial < lo) | (trial > hi)
-        trial = np.where(out, rng.uniform(lo, hi, trial.shape), trial)
-        tfit = np.array([obj(u) for u in trial])
-        win = tfit <= fit
-        pop[win], fit[win] = trial[win], tfit[win]
-        hist.append(float(fit.min()))
-        ev.append(obj.n_equiv)
+        mutante = poblacion[a] + factor_mutacion * (poblacion[b] - poblacion[c])
+        mascara = rng.random((tam_poblacion, dim)) < tasa_cruce
+        mascara[filas, rng.integers(0, dim, tam_poblacion)] = True
+        vector_prueba = np.where(mascara, mutante, poblacion)
+        fuera = (vector_prueba < lim_inf) | (vector_prueba > lim_sup)
+        vector_prueba = np.where(fuera, rng.uniform(lim_inf, lim_sup, vector_prueba.shape), vector_prueba)
+        aptitud_prueba = np.array([obj(u) for u in vector_prueba])
+        gana = aptitud_prueba <= aptitud
+        poblacion[gana], aptitud[gana] = vector_prueba[gana], aptitud_prueba[gana]
+        historial.append(float(aptitud.min()))
+        traza_evals.append(obj.n_equiv)
         if record:
-            frames.append(pop[:, :2].copy())
-    i = int(fit.argmin())
-    return pop[i].copy(), float(fit[i]), hist, ev, frames
+            frames.append(poblacion[:, :2].copy())
+    i = int(aptitud.argmin())
+    return poblacion[i].copy(), float(aptitud[i]), historial, traza_evals, frames
 
 
 # ---------------- Líneas base (opcionales) ----------------
 @register_algorithm("random_search")
 def random_search(obj, dim, bounds, rng, max_evals, record=False):
-    lo, hi = bounds
-    x_best = rng.uniform(lo, hi, dim)
-    f_best = obj(x_best)
-    hist, ev = [f_best], [obj.n_equiv]
+    lim_inf, lim_sup = bounds
+    mejor_x = rng.uniform(lim_inf, lim_sup, dim)
+    mejor_f = obj(mejor_x)
+    historial, traza_evals = [mejor_f], [obj.n_equiv]
     while obj.n_equiv + 1 <= max_evals:
-        x = rng.uniform(lo, hi, dim)
-        fx = obj(x)
-        if fx < f_best:
-            x_best, f_best = x, fx
-        hist.append(f_best)
-        ev.append(obj.n_equiv)
-    return x_best, f_best, hist, ev, None
+        candidato_x = rng.uniform(lim_inf, lim_sup, dim)
+        f_candidato = obj(candidato_x)
+        if f_candidato < mejor_f:
+            mejor_x, mejor_f = candidato_x, f_candidato
+        historial.append(mejor_f)
+        traza_evals.append(obj.n_equiv)
+    return mejor_x, mejor_f, historial, traza_evals, None
 
 
 @register_algorithm("simulated_annealing")
 def simulated_annealing(obj, dim, bounds, rng, max_evals, record=False,
-                        T0=10.0, alpha=0.9995, step=0.1):
-    lo, hi = bounds
-    x = rng.uniform(lo, hi, dim)
+                        temp_inicial=10.0, factor_enfriamiento=0.9995, paso_vecino=0.1):
+    lim_inf, lim_sup = bounds
+    x = rng.uniform(lim_inf, lim_sup, dim)
     fx = obj(x)
-    x_best, f_best = x.copy(), fx
-    hist, ev = [f_best], [obj.n_equiv]
+    mejor_x, mejor_f = x.copy(), fx
+    historial, traza_evals = [mejor_f], [obj.n_equiv]
     frames = [x.copy()] if record else None
-    T = T0
+    temperatura = temp_inicial
     while obj.n_equiv + 1 <= max_evals:
-        cand = np.clip(x + rng.normal(0.0, step, dim), lo, hi)
-        fc = obj(cand)
-        df = fc - fx
-        if df < 0 or rng.random() < np.exp(-df / max(T, 1e-12)):
-            x, fx = cand, fc
-            if fx < f_best:
-                x_best, f_best = x.copy(), fx
-        T *= alpha
-        hist.append(f_best)
-        ev.append(obj.n_equiv)
+        candidato = np.clip(x + rng.normal(0.0, paso_vecino, dim), lim_inf, lim_sup)
+        f_candidato = obj(candidato)
+        delta_f = f_candidato - fx
+        if delta_f < 0 or rng.random() < np.exp(-delta_f / max(temperatura, 1e-12)):
+            x, fx = candidato, f_candidato
+            if fx < mejor_f:
+                mejor_x, mejor_f = x.copy(), fx
+        temperatura *= factor_enfriamiento
+        historial.append(mejor_f)
+        traza_evals.append(obj.n_equiv)
         if record:
             frames.append(x.copy())
-    return x_best, f_best, hist, ev, frames
+    return mejor_x, mejor_f, historial, traza_evals, frames
 
 
 MAIN_ALGOS = ("gradient_descent", "genetic", "pso", "differential_evolution")
@@ -431,13 +458,25 @@ def make_gif(algorithm, out, dim=2, seed=42, max_evals=20000, params=None,
     if res.frames is None:
         raise ValueError(f"'{algorithm}' no guarda trayectoria; usa otro algoritmo.")
     lo, hi = PROBLEMS[problem]["bounds"]
+    func = PROBLEMS[problem]["func"]
+    known_opt = PROBLEMS[problem]["known_optimum"](2) if PROBLEMS[problem]["known_optimum"] else None
     g = np.linspace(lo, hi, 300)
     X, Y = np.meshgrid(g, g)
-    Z = 100.0 * (Y - X ** 2) ** 2 + (1.0 - X) ** 2
+    if problem == "rosenbrock":
+        Z = 100.0 * (Y - X ** 2) ** 2 + (1.0 - X) ** 2
+        levels = np.logspace(-2, 3.5, 25)
+    elif problem == "rastrigin":
+        Z = 20.0 + (X ** 2 - 10.0 * np.cos(2 * np.pi * X)) + (Y ** 2 - 10.0 * np.cos(2 * np.pi * Y))
+        levels = np.linspace(0, 80, 25)
+    else:
+        grid_pts = np.column_stack([X.ravel(), Y.ravel()])
+        Z = np.array([func(p) for p in grid_pts]).reshape(X.shape)
+        levels = 25
 
     fig, ax = plt.subplots(figsize=(5.5, 5))
-    ax.contourf(X, Y, Z, levels=np.logspace(-2, 3.5, 25), extend="both", cmap="viridis")
-    ax.plot(1, 1, "r*", ms=14, label="óptimo (1,1)")
+    ax.contourf(X, Y, Z, levels=levels, extend="both", cmap="viridis")
+    if known_opt is not None:
+        ax.plot(known_opt[0], known_opt[1], "r*", ms=14, label=f"óptimo ({known_opt[0]:g},{known_opt[1]:g})")
     is_path = np.ndim(res.frames[0]) == 1
     if is_path:
         line, = ax.plot([], [], "w.-", lw=1, ms=3)
@@ -535,6 +574,8 @@ def parse_overrides(raw, selected):
 
 def build_parser():
     common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--problem", choices=sorted(PROBLEMS), default="rosenbrock",
+                        help="función de prueba (por defecto: rosenbrock)")
     common.add_argument("--config", help="archivo JSON con valores por defecto")
     common.add_argument("--max-evals", dest="max_evals", type=int)
     common.add_argument("--param", action="append", metavar="[algo.]clave=valor")
@@ -579,6 +620,7 @@ def main(argv=None):
         return v if v is not None else cfg.get(name, default)
 
     max_evals = pick("max_evals", 20000)
+    problem = pick("problem", "rosenbrock")
 
     def params_for(selected):
         base = {a: dict(cfg.get("params", {}).get(a, {})) for a in ALGORITHMS}
@@ -588,13 +630,13 @@ def main(argv=None):
 
     if args.cmd == "run":
         algo, dim, seed = pick("algo", "gradient_descent"), pick("dim", 2), pick("seed", 42)
-        print(optimize(algo, "rosenbrock", dim, seed, max_evals, **params_for([algo])[algo]))
+        print(optimize(algo, problem, dim, seed, max_evals, **params_for([algo])[algo]))
 
     elif args.cmd == "gif":
         algo, seed = pick("algo", "gradient_descent"), pick("seed", 42)
-        out = pick("out", f"figs/{algo}_rosenbrock_2d.gif")
+        out = pick("out", f"figs/{algo}_{problem}_2d.gif")
         res = make_gif(algo, out, 2, seed, max_evals, params_for([algo])[algo],
-                       pick("max_frames", 80), pick("fps", 10))
+                       pick("max_frames", 80), pick("fps", 10), problem=problem)
         print(f"GIF guardado en {out}\n{res}")
 
     elif args.cmd == "stats":
@@ -606,11 +648,11 @@ def main(argv=None):
         thr, out = pick("threshold", 1e-4), pick("out", "results")
         P = params_for(algos)
         rows, t0 = [], time.time()
-        print(f"Rosenbrock | corridas={n_runs} | presupuesto={max_evals} evals equivalentes "
+        print(f"{problem.capitalize()} | corridas={n_runs} | presupuesto={max_evals} evals equivalentes "
               f"| éxito: f < {thr:g} | semillas {seed0}..{seed0 + n_runs - 1}")
         for d in dims:
             for a in algos:
-                rows.append(run_batch(a, "rosenbrock", d, n_runs, seed0, max_evals, thr, P[a]))
+                rows.append(run_batch(a, problem, d, n_runs, seed0, max_evals, thr, P[a]))
         hdr = (f"{'algoritmo':24s}{'dim':>4s}{'media':>11s}{'std':>11s}{'mejor':>11s}"
                f"{'peor':>11s}{'éxito':>7s}{'n_f':>9s}{'n_grad':>8s}{'equiv':>9s}")
         print(hdr)
@@ -629,14 +671,3 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
-
-
-    from optimizacion import optimize
-
-res = optimize(algorithm="gradient_descent", problem="rosenbrock",
-               dim=2, random_seed=42, max_evals=20000, lr0=0.5)
-
-print(res)           # resumen
-print(res.x_best)    # mejor punto
-print(res.f_best)    # mejor valor
-print(res.n_f, res.n_grad, res.n_equiv)
