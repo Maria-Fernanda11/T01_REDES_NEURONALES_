@@ -4,23 +4,24 @@ resuelto con Colonia de Hormigas (ACO) y Algoritmo Genético (GA).
 
 USO (un solo comando):
     python tsp_bio.py                       # usa los hiperparámetros de config.ini
-    python tsp_bio.py --modo puro           # ACO y GA clásicos, sin 2-opt (comparación)
+    python tsp_bio.py --modo puro           # ACO y GA clásicos, sin búsqueda local (comparación)
     python tsp_bio.py --seed 7              # otra semilla (misma semilla ⇒ mismo resultado)
     python tsp_bio.py --config otro.ini     # otro archivo de configuración
     python tsp_bio.py --distancias haversine  # línea recta en vez de carretera
 
 DISTANCIAS:
-    - carretera (por defecto): lee distancias_carretera.csv, generado UNA vez con
-      obtener_carretera.py (necesita internet solo esa vez).
-    - haversine: línea recta calculada desde las coordenadas (sin archivos extra).
+    - carretera (por defecto): distancias_km.csv. Es ASIMÉTRICA (ida ≠ vuelta), así
+      que el programa tiene en cuenta el sentido en que se recorre cada tramo.
+      Con 'simetrizar = si' en config.ini se usa la media de ida y vuelta.
+    - haversine: línea recta calculada desde coordenadas.csv.
 
 HIPERPARÁMETROS:
     Todos se editan en config.ini, sin tocar este archivo. Prioridad:
     opciones de terminal  >  config.ini  >  valores por defecto (PASO 4).
 
 REQUISITOS:
-    - Python 3.8+ y, en la misma carpeta: datos_tsp.py, config.ini y
-      distancias_carretera.csv (este último solo con distancias = carretera).
+    - Python 3.8+ y, en la misma carpeta: datos_tsp.py, config.ini,
+      coordenadas.csv y distancias_km.csv.
     - Solo librería estándar.
     - Opcional: matplotlib → se guarda además resultados.png (mapas + convergencia).
 
@@ -30,7 +31,7 @@ SALIDAS:
     - resultados.png: gráfica (solo si matplotlib está instalado).
 
 ESTRUCTURA
-    Paso 0. Utilidades comunes (longitud, vecino más cercano, 2-opt).
+    Paso 0. Utilidades comunes (longitud, vecino más cercano, 2-opt y Or-opt).
     Paso 1. Colonia de Hormigas (ACO).
     Paso 2. Algoritmo Genético (GA).
     Paso 3. Presentación de resultados.
@@ -44,11 +45,16 @@ import random
 import sys
 import time
 
-from punto_2.parte_1.datos_tsp import CAPITALES, CIUDADES, cargar_distancias
+try:    # ejecutado como parte del paquete (python -m punto_2.parte_1.tsp_bio, PyCharm…)
+    from .datos_tsp import CAPITALES, CIUDADES, cargar_distancias, es_simetrica
+except ImportError:    # ejecutado directamente (python tsp_bio.py)
+    from datos_tsp import CAPITALES, CIUDADES, cargar_distancias, es_simetrica
 
-# Matriz de distancias activa (km). Se asigna en main() según config.ini:
-# "haversine" (línea recta) o "carretera" (distancias_carretera.csv).
+# Matriz de distancias activa (km). Se asigna en main() según config.ini.
+# D[i][j] = distancia DE i HACIA j. Con datos por carretera puede ser
+# D[i][j] != D[j][i] (matriz asimétrica), así que el SENTIDO del recorrido importa.
 D = cargar_distancias("haversine")
+SIMETRICA = True
 
 N = len(CIUDADES)  # 47 nodos
 
@@ -73,26 +79,84 @@ def vecino_mas_cercano(inicio=0):
     return ruta
 
 
+def _sumas_acumuladas(ruta):
+    """adelante[k] = km de ruta[0]→…→ruta[k];  atras[k] = ese mismo trozo recorrido al revés."""
+    adelante, atras = [0.0] * N, [0.0] * N
+    for k in range(1, N):
+        adelante[k] = adelante[k - 1] + D[ruta[k - 1]][ruta[k]]
+        atras[k] = atras[k - 1] + D[ruta[k]][ruta[k - 1]]
+    return adelante, atras
+
+
 def dos_opt(ruta):
-    """Búsqueda local 2-opt: si cambiar dos aristas por otras dos acorta la ruta,
-    se invierte el tramo intermedio. Se repite hasta que nada mejora.
+    """Búsqueda local 2-opt: si cambiar dos tramos por otros dos acorta la ruta,
+    se invierte el trozo intermedio. Se repite hasta que nada mejora.
 
-        ... a → b ... c → d ...   ⇒   ... a → c ... b → d ...   (tramo b..c invertido)
+        ... a → b → ... → c → d ...   ⇒   ... a → c → ... → b → d ...
 
-    Elimina los "cruces" de la ruta, que en un TSP euclídeo nunca son óptimos."""
+    Con distancias ASIMÉTRICAS, el trozo b..c pasa a recorrerse AL REVÉS y su
+    longitud cambia (ida ≠ vuelta). Por eso la ganancia incluye
+    (coste del trozo al revés) − (coste del trozo hacia delante), que se obtiene
+    al instante con sumas acumuladas en ambos sentidos."""
     ruta = ruta[:]
+    adelante, atras = _sumas_acumuladas(ruta)
     mejora = True
     while mejora:
         mejora = False
         for i in range(N - 1):
-            for j in range(i + 2, N if i > 0 else N - 1):  # aristas no adyacentes
+            for j in range(i + 2, N if i > 0 else N - 1):  # tramos no adyacentes
                 a, b = ruta[i], ruta[i + 1]
                 c, d = ruta[j], ruta[(j + 1) % N]
-                # Ganancia de sustituir (a-b, c-d) por (a-c, b-d)
-                if D[a][c] + D[b][d] - D[a][b] - D[c][d] < -1e-9:
+                cambio_interior = (atras[j] - atras[i + 1]) - (adelante[j] - adelante[i + 1])
+                if D[a][c] + D[b][d] - D[a][b] - D[c][d] + cambio_interior < -1e-9:
                     ruta[i + 1:j + 1] = reversed(ruta[i + 1:j + 1])
+                    adelante, atras = _sumas_acumuladas(ruta)   # la ruta cambió
                     mejora = True
     return ruta
+
+
+def or_opt(ruta):
+    """Búsqueda local Or-opt: saca un trozo de 1, 2 o 3 ciudades consecutivas y lo
+    reinserta en otro punto de la ruta SIN invertirlo.
+
+        ... p → [s1 … sL] → q ... x → y ...   ⇒   ... p → q ... x → [s1 … sL] → y ...
+
+    Como el trozo conserva su sentido, es la mejora natural cuando ida ≠ vuelta
+    (2-opt, en cambio, obliga a recorrer un trozo al revés)."""
+    ruta = ruta[:]
+    mejora = True
+    while mejora:
+        mejora = False
+        for L in (1, 2, 3):
+            for i in range(N):
+                trozo = [ruta[(i + t) % N] for t in range(L)]
+                p, q = ruta[i - 1], ruta[(i + L) % N]
+                s1, sL = trozo[0], trozo[-1]
+                ahorro = D[p][s1] + D[sL][q] - D[p][q]          # lo que se ahorra al sacarlo
+                resto = [c for c in ruta if c not in trozo]     # ruta sin el trozo (p → q)
+                mejor_k, mejor_coste = None, ahorro - 1e-9
+                for k in range(len(resto)):
+                    x, y = resto[k], resto[(k + 1) % len(resto)]
+                    if x == p:                                  # posición original
+                        continue
+                    coste = D[x][s1] + D[sL][y] - D[x][y]       # lo que cuesta meterlo entre x e y
+                    if coste < mejor_coste:
+                        mejor_k, mejor_coste = k, coste
+                if mejor_k is not None:
+                    ruta = resto[:mejor_k + 1] + trozo + resto[mejor_k + 1:]
+                    mejora = True
+    return ruta
+
+
+def mejora_local(ruta):
+    """Alterna 2-opt y Or-opt hasta que ninguno de los dos mejora la ruta."""
+    L = longitud(ruta)
+    while True:
+        ruta = or_opt(dos_opt(ruta))
+        nueva = longitud(ruta)
+        if nueva > L - 1e-9:
+            return ruta
+        L = nueva
 
 
 def rotar(ruta, inicio):
@@ -102,7 +166,7 @@ def rotar(ruta, inicio):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# PASO 1. COLONIA DE HORMIGAS (ACO) — Ant System elitista (+ 2-opt opcional)
+# PASO 1. COLONIA DE HORMIGAS (ACO) — Ant System elitista (+ búsqueda local opcional)
 # ═════════════════════════════════════════════════════════════════════════════
 def aco(rng, n_hormigas=20, iteraciones=200, alpha=1.0, beta=3.0, rho=0.1,
         elitismo=5.0, busqueda_local=True, log_cada=50):
@@ -111,7 +175,7 @@ def aco(rng, n_hormigas=20, iteraciones=200, alpha=1.0, beta=3.0, rho=0.1,
         (m = nº de hormigas, L_nn = longitud del vecino más cercano).
     1.2 Cada hormiga construye una ruta: desde la ciudad i elige la siguiente j
         (no visitada) con probabilidad ∝ τ_ij^α · η_ij^β, con η_ij = 1/d_ij.
-    1.3 (Opcional) La mejor hormiga de la iteración se mejora con 2-opt.
+    1.3 (Opcional) La mejor hormiga de la iteración se mejora con 2-opt + Or-opt.
     1.4 Evaporación: τ ← (1 − ρ)·τ.
     1.5 Depósito: cada ruta suma 1/L en sus aristas; la mejor ruta global
         suma 'elitismo'/L adicional (refuerzo elitista).
@@ -145,7 +209,7 @@ def aco(rng, n_hormigas=20, iteraciones=200, alpha=1.0, beta=3.0, rho=0.1,
         # 1.3 Búsqueda local sobre la mejor hormiga de la iteración
         ruta_it, L_it = min(rutas, key=lambda x: x[1])
         if busqueda_local:
-            ruta_it = dos_opt(ruta_it)
+            ruta_it = mejora_local(ruta_it)
             L_it = longitud(ruta_it)
             rutas.append((ruta_it, L_it))             # la versión mejorada también deposita
 
@@ -157,13 +221,18 @@ def aco(rng, n_hormigas=20, iteraciones=200, alpha=1.0, beta=3.0, rho=0.1,
             for j in range(N):
                 fila[j] *= (1.0 - rho)
 
-        # 1.5 Depósito (simétrico: la arista i-j es la misma que j-i)
-        for ruta, L in rutas + [(mejor_ruta, mejor_L / elitismo)]:  # L/e ⇒ deposita e/L
-            dep = 1.0 / L
+        # 1.5 Depósito: 1/L por cada ruta y e/L extra para la mejor global.
+        # Con distancias asimétricas se refuerza solo el sentido recorrido (a → b);
+        # con simétricas, ambos sentidos (a → b y b → a son el mismo tramo).
+        depositos = [(ruta, 1.0 / L) for ruta, L in rutas]
+        if elitismo > 0:
+            depositos.append((mejor_ruta, elitismo / mejor_L))
+        for ruta, dep in depositos:
             for k in range(N):
                 a, b = ruta[k - 1], ruta[k]
                 tau[a][b] += dep
-                tau[b][a] += dep
+                if SIMETRICA:
+                    tau[b][a] += dep
 
         historial.append(mejor_L)
         if log_cada and it % log_cada == 0:
@@ -173,14 +242,16 @@ def aco(rng, n_hormigas=20, iteraciones=200, alpha=1.0, beta=3.0, rho=0.1,
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# PASO 2. ALGORITMO GENÉTICO (GA) — (+ 2-opt opcional = GA memético)
+# PASO 2. ALGORITMO GENÉTICO (GA) — (+ búsqueda local opcional = GA memético)
 # ═════════════════════════════════════════════════════════════════════════════
 def cruce_ox(p1, p2, rng):
     """Order Crossover (OX): copia un tramo de p1 y completa con las ciudades
     restantes en el orden en que aparecen en p2 → nunca repite ciudades.
 
         p1 = [A B |C D E| F G]       hijo = [_ _ C D E _ _]
-        p2 = [E G  B A F  D C]  →    huecos rellenados con F G B A (orden de p2)
+        p2 = [E G  B A F  D C]  →    hijo = [A F C D E G B]
+    (p2 leído desde después del tramo: D C E G B A F → sin C D E: G B A F,
+     colocadas en los huecos desde después del tramo: posiciones 6, 7, 1, 2)
     """
     i, j = sorted(rng.sample(range(N), 2))
     hijo = [None] * N
@@ -213,7 +284,7 @@ def ga(rng, tam_poblacion=150, generaciones=500, p_cruce=0.9, p_mutacion=0.3,
     2.4 Selección de dos padres por torneo.
     2.5 Cruce OX con probabilidad p_cruce (si no, el hijo es copia de p1).
     2.6 Mutación por inversión con probabilidad p_mutacion.
-    2.7 (Opcional) 2-opt al hijo con probabilidad p_busqueda_local (GA memético).
+    2.7 (Opcional) 2-opt + Or-opt al hijo con probabilidad p_busqueda_local (GA memético).
     2.8 Se descartan hijos repetidos para conservar la diversidad
         (evita la convergencia prematura: toda la población igual).
     Devuelve (mejor_ruta, mejor_longitud, historial, generación_del_mejor).
@@ -241,7 +312,7 @@ def ga(rng, tam_poblacion=150, generaciones=500, p_cruce=0.9, p_mutacion=0.3,
             if rng.random() < p_mutacion:
                 mutacion_inversion(hijo, rng)
             if rng.random() < p_busqueda_local:
-                hijo = dos_opt(hijo)
+                hijo = mejora_local(hijo)
             huella = round(longitud(hijo), 6)
             if huella in vistos:          # clon de alguien ya incluido → se descarta
                 continue
@@ -299,6 +370,13 @@ def graficar(resultados, historiales, optimo=None, archivo="resultados.png"):
         ciclo = ruta + [ruta[0]]
         ax.plot([lon[c] for c in ciclo], [lat[c] for c in ciclo], "-",
                 color=colores[nombre], lw=2, zorder=1)
+        if not SIMETRICA:  # con ida ≠ vuelta el sentido importa: flecha en cada tramo
+            for a, b in zip(ciclo, ciclo[1:]):
+                xm, ym = (lon[a] + lon[b]) / 2, (lat[a] + lat[b]) / 2
+                ax.annotate("", xy=(xm + (lon[b] - lon[a]) * 0.05, ym + (lat[b] - lat[a]) * 0.05),
+                            xytext=(xm, ym), zorder=2,
+                            arrowprops=dict(arrowstyle="-|>", color=colores[nombre], lw=0,
+                                            mutation_scale=11))
         ax.scatter(lon, lat, s=36, color="#333333", edgecolor="white", linewidth=1.5, zorder=2)
         ax.scatter([lon[ruta[0]]], [lat[ruta[0]]], s=160, marker="*", color="#111111",
                    zorder=3, label=f"Salida: {CIUDADES[ruta[0]]}")
@@ -346,18 +424,20 @@ POR_DEFECTO = {
         "inicio": "Madrid",
         "modo": "hibrido",
         "distancias": "carretera",
+        "simetrizar": False,
         # Óptimos exactos conocidos de cada matriz (programación lineal entera, DFJ).
         # Solo miden la diferencia con el óptimo; no intervienen en la búsqueda.
         # None = desconocido (se calcula con optimo_exacto.py y se escribe en config.ini).
-        "optimo_haversine_km": 4798.7,
         "optimo_carretera_km": None,
+        "optimo_carretera_simetrizada_km": None,
+        "optimo_haversine_km": None,
         "lineas_progreso": 6,
         "archivo_csv": "resultados.csv",
         "archivo_png": "resultados.png",
     },
-    "aco": {"n_hormigas": 20, "iteraciones": 300, "alpha": 1.0, "beta": 3.0,
+    "aco": {"n_hormigas": 20, "iteraciones": 300, "alpha": 1.0, "beta": 5.0,
             "rho": 0.1, "elitismo": 5.0, "busqueda_local": True},
-    "ga": {"tam_poblacion": 150, "generaciones": 500, "p_cruce": 0.9, "p_mutacion": 0.3,
+    "ga": {"tam_poblacion": 150, "generaciones": 200, "p_cruce": 0.9, "p_mutacion": 0.3,
            "p_busqueda_local": 0.05, "n_elite": 2, "k_torneo": 3},
 }
 VERDADERO = {"si", "sí", "true", "yes", "1"}
@@ -461,12 +541,12 @@ def validar_config(cfg):
 
 
 def main():
-    global D
+    global D, SIMETRICA
     ap = argparse.ArgumentParser(description="TSP 47 capitales: ACO vs GA")
     ap.add_argument("--config", default="config.ini", help="archivo de hiperparámetros")
     ap.add_argument("--seed", type=int, help="semilla (prioridad sobre config.ini)")
     ap.add_argument("--inicio", help="ciudad de salida para mostrar la ruta")
-    ap.add_argument("--modo", choices=["hibrido", "puro"], help="hibrido (2-opt) o puro")
+    ap.add_argument("--modo", choices=["hibrido", "puro"], help="hibrido (con búsqueda local) o puro")
     ap.add_argument("--puro", action="store_true", help="atajo de --modo puro")
     ap.add_argument("--distancias", choices=["carretera", "haversine"],
                     help="fuente de distancias (prioridad sobre config.ini)")
@@ -495,12 +575,15 @@ def main():
     lineas = gen["lineas_progreso"]
     p_aco["log_cada"] = max(1, p_aco["iteraciones"] // lineas) if lineas > 0 else 0
     p_ga["log_cada"] = max(1, p_ga["generaciones"] // lineas) if lineas > 0 else 0
-    # Matriz de distancias: todas las funciones (longitud, 2-opt, ACO, GA) usan D
+    # Matriz de distancias: todas las funciones (longitud, búsqueda local, ACO, GA) usan D
     try:
-        D = cargar_distancias(gen["distancias"])
-    except (FileNotFoundError, ValueError) as e:
+        D = cargar_distancias(gen["distancias"], sim=gen["simetrizar"])
+    except (FileNotFoundError, ValueError, AssertionError) as e:
         sys.exit(f"Error al cargar las distancias: {e}")
-    optimo = gen[f"optimo_{gen['distancias']}_km"]
+    SIMETRICA = es_simetrica(D)
+    variante = gen["distancias"] + ("_simetrizada" if gen["distancias"] == "carretera"
+                                    and gen["simetrizar"] else "")
+    optimo = gen[f"optimo_{variante}_km"]
     inicio = CIUDADES.index(gen["inicio"])
     semilla = gen["semilla"]
 
@@ -509,6 +592,8 @@ def main():
     print(f" TSP cerrado · {N} capitales · distancias por {gen['distancias']} · "
           f"modo {gen['modo']} · semilla {semilla}")
     print("=" * 74)
+    print("Matriz: " + ("simétrica (ida = vuelta)" if SIMETRICA
+                        else "ASIMÉTRICA (ida ≠ vuelta: el sentido del recorrido importa)"))
     print("ACO: " + ", ".join(f"{k}={v}" for k, v in cfg["aco"].items()))
     print("GA : " + ", ".join(f"{k}={v}" for k, v in cfg["ga"].items()))
     L_nn = longitud(vecino_mas_cercano(inicio))
@@ -541,7 +626,9 @@ def main():
     print("=" * 74)
     print(f"   {'Algoritmo':<10} {'Longitud':>11} {'Dif. óptimo':>12} {'Hallada en':>12} {'Tiempo':>8}")
     for nombre, _, L, k, seg in filas:
-        gap = f"{100 * (L - optimo) / optimo:+10.2f} %" if optimo else f"{'—':>12}"
+        dif = 100 * (L - optimo) / optimo if optimo else None
+        dif = 0.0 if dif is not None and abs(dif) < 0.005 else dif   # evita "-0.00 %"
+        gap = f"{dif:+10.2f} %" if dif is not None else f"{'—':>12}"
         hallada = ("iter. " if nombre == "ACO" else "gen. ") + str(k)
         print(f"   {nombre:<10} {L:8.1f} km {gap} {hallada:>12} {seg:6.1f} s")
 
