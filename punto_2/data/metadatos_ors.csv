@@ -1,0 +1,8 @@
+﻿clave,valor
+fuente,OpenRouteService Matrix API v2
+perfil,driving-car
+fecha_consulta,2026-10-08
+n_ciudades,47
+unidad_distancia,km
+unidad_tiempo,horas
+max_ajuste_a_carretera_m,188.2
