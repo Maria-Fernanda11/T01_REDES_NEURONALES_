@@ -7,13 +7,20 @@ USO (un solo comando):
     python tsp_bio.py --modo puro           # ACO y GA clásicos, sin 2-opt (comparación)
     python tsp_bio.py --seed 7              # otra semilla (misma semilla ⇒ mismo resultado)
     python tsp_bio.py --config otro.ini     # otro archivo de configuración
+    python tsp_bio.py --distancias haversine  # línea recta en vez de carretera
+
+DISTANCIAS:
+    - carretera (por defecto): lee distancias_carretera.csv, generado UNA vez con
+      obtener_carretera.py (necesita internet solo esa vez).
+    - haversine: línea recta calculada desde las coordenadas (sin archivos extra).
 
 HIPERPARÁMETROS:
     Todos se editan en config.ini, sin tocar este archivo. Prioridad:
     opciones de terminal  >  config.ini  >  valores por defecto (PASO 4).
 
 REQUISITOS:
-    - Python 3.8+ y datos_tsp.py (y config.ini, opcional) en la misma carpeta.
+    - Python 3.8+ y, en la misma carpeta: datos_tsp.py, config.ini y
+      distancias_carretera.csv (este último solo con distancias = carretera).
     - Solo librería estándar.
     - Opcional: matplotlib → se guarda además resultados.png (mapas + convergencia).
 
@@ -37,10 +44,11 @@ import random
 import sys
 import time
 
-# De acá salen directamente los datos.
-#  datos_tsp_carretera: para hacerlo con los datos por carretera
-# datos_tsp: Para hacerlo con los datos con la distancia de la matriz haversine
-from Trabajos.trabajo_1.T01_REDES_NEURONALES_.punto_2.Scripts.datos_tsp import CAPITALES, CIUDADES, D
+from punto_2.parte_1.datos_tsp import CAPITALES, CIUDADES, cargar_distancias
+
+# Matriz de distancias activa (km). Se asigna en main() según config.ini:
+# "haversine" (línea recta) o "carretera" (distancias_carretera.csv).
+D = cargar_distancias("haversine")
 
 N = len(CIUDADES)  # 47 nodos
 
@@ -337,9 +345,12 @@ POR_DEFECTO = {
         "semilla": 42,
         "inicio": "Madrid",
         "modo": "hibrido",
-        # Óptimo exacto de la matriz Haversine actual (programación lineal entera,
-        # formulación DFJ). Solo mide la diferencia; no interviene en la búsqueda.
-        "optimo_referencia_km": 4798.7,
+        "distancias": "carretera",
+        # Óptimos exactos conocidos de cada matriz (programación lineal entera, DFJ).
+        # Solo miden la diferencia con el óptimo; no intervienen en la búsqueda.
+        # None = desconocido (se calcula con optimo_exacto.py y se escribe en config.ini).
+        "optimo_haversine_km": 4798.7,
+        "optimo_carretera_km": None,
         "lineas_progreso": 6,
         "archivo_csv": "resultados.csv",
         "archivo_png": "resultados.png",
@@ -374,13 +385,24 @@ def convertir(texto, ejemplo, donde):
 def cargar_config(ruta):
     """Lee config.ini y devuelve la configuración completa (con defaults)."""
     cfg = {sec: dict(vals) for sec, vals in POR_DEFECTO.items()}
+
+    # Una ruta relativa se busca primero en la carpeta desde la que se ejecuta y,
+    # si no está ahí, en la carpeta de este script. Así funciona aunque se lance
+    # como "python carpeta/tsp_bio.py" o con el botón "Run" de un editor.
+    if not os.path.isabs(ruta) and not os.path.exists(ruta):
+        junto_al_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), ruta)
+        if os.path.exists(junto_al_script):
+            ruta = junto_al_script
     if not os.path.exists(ruta):
-        print(f"(No se encontró {ruta}: se usan los valores por defecto)")
+        print("!" * 74)
+        print(f"AVISO: no se encontró {ruta}. Se usan los valores por defecto.")
+        print("!" * 74)
         return cfg
 
     ini = configparser.ConfigParser(inline_comment_prefixes=(";", "#"),
                                     empty_lines_in_values=False)
-    ini.read(ruta, encoding="utf-8")
+    ini.read(ruta, encoding="utf-8-sig")  # -sig: tolera el BOM que añade el Bloc de notas
+    print(f"Configuración leída de: {os.path.abspath(ruta)}")
 
     for seccion in ini.sections():
         if seccion not in cfg and seccion != "puro":
@@ -391,10 +413,12 @@ def cargar_config(ruta):
             sys.exit(f"Error en {ruta} → {origen}: parámetro desconocido '{clave}'. "
                      f"Válidos en [{seccion}]: {', '.join(cfg[seccion])}")
         ejemplo = POR_DEFECTO[seccion][clave]
-        if clave == "optimo_referencia_km" and texto.strip().lower() in ("ninguno", "none", ""):
-            cfg[seccion][clave] = None
-        else:
-            cfg[seccion][clave] = convertir(texto, ejemplo, f"{ruta} → {origen}")
+        if clave.startswith("optimo_"):           # número o "ninguno"
+            if texto.strip().lower() in ("ninguno", "none", ""):
+                cfg[seccion][clave] = None
+                return
+            ejemplo = 0.0
+        cfg[seccion][clave] = convertir(texto, ejemplo, f"{ruta} → {origen}")
 
     for seccion in ("general", "aco", "ga"):
         if ini.has_section(seccion):
@@ -413,6 +437,8 @@ def validar_config(cfg):
     errores = []
     if gen["modo"] not in ("hibrido", "puro"):
         errores.append("[general] modo debe ser 'hibrido' o 'puro'")
+    if gen["distancias"] not in ("carretera", "haversine"):
+        errores.append("[general] distancias debe ser 'carretera' o 'haversine'")
     if gen["inicio"] not in CIUDADES:
         errores.append(f"[general] inicio: ciudad desconocida '{gen['inicio']}'")
     if a["n_hormigas"] < 1 or a["iteraciones"] < 1:
@@ -435,12 +461,15 @@ def validar_config(cfg):
 
 
 def main():
+    global D
     ap = argparse.ArgumentParser(description="TSP 47 capitales: ACO vs GA")
     ap.add_argument("--config", default="config.ini", help="archivo de hiperparámetros")
     ap.add_argument("--seed", type=int, help="semilla (prioridad sobre config.ini)")
     ap.add_argument("--inicio", help="ciudad de salida para mostrar la ruta")
     ap.add_argument("--modo", choices=["hibrido", "puro"], help="hibrido (2-opt) o puro")
     ap.add_argument("--puro", action="store_true", help="atajo de --modo puro")
+    ap.add_argument("--distancias", choices=["carretera", "haversine"],
+                    help="fuente de distancias (prioridad sobre config.ini)")
     args = ap.parse_args()
 
     # 4.1 Configuración: defaults → config.ini → opciones de terminal
@@ -452,6 +481,8 @@ def main():
         gen["inicio"] = args.inicio
     if args.modo or args.puro:
         gen["modo"] = "puro" if args.puro else args.modo
+    if args.distancias:
+        gen["distancias"] = args.distancias
     if gen["modo"] == "puro":                     # sustituciones de la sección [puro]
         for clave, texto in cfg.get("_puro", {}).items():
             if "." not in clave or clave.split(".")[0] not in ("aco", "ga"):
@@ -464,13 +495,19 @@ def main():
     lineas = gen["lineas_progreso"]
     p_aco["log_cada"] = max(1, p_aco["iteraciones"] // lineas) if lineas > 0 else 0
     p_ga["log_cada"] = max(1, p_ga["generaciones"] // lineas) if lineas > 0 else 0
-    optimo = gen["optimo_referencia_km"]
+    # Matriz de distancias: todas las funciones (longitud, 2-opt, ACO, GA) usan D
+    try:
+        D = cargar_distancias(gen["distancias"])
+    except (FileNotFoundError, ValueError) as e:
+        sys.exit(f"Error al cargar las distancias: {e}")
+    optimo = gen[f"optimo_{gen['distancias']}_km"]
     inicio = CIUDADES.index(gen["inicio"])
     semilla = gen["semilla"]
 
     # 4.2 Cabecera con la configuración efectiva (para que el experimento quede documentado)
     print("=" * 74)
-    print(f" TSP cerrado · {N} capitales · modo {gen['modo']} · semilla {semilla}")
+    print(f" TSP cerrado · {N} capitales · distancias por {gen['distancias']} · "
+          f"modo {gen['modo']} · semilla {semilla}")
     print("=" * 74)
     print("ACO: " + ", ".join(f"{k}={v}" for k, v in cfg["aco"].items()))
     print("GA : " + ", ".join(f"{k}={v}" for k, v in cfg["ga"].items()))
@@ -513,11 +550,15 @@ def main():
           f"{100 * (L_nn - mejor[2]) / L_nn:.1f} % más corto que el vecino más cercano):")
     print("   " + " → ".join(CIUDADES[c] for c in mejor[1] + [mejor[1][0]]))
 
-    # 4.4 Archivos de salida
-    guardar_csv([(f[0], f[1], f[2]) for f in filas], gen["archivo_csv"])
-    print(f"\nRutas guardadas en {gen['archivo_csv']}")
+    # 4.4 Archivos de salida: las rutas relativas se guardan junto al script,
+    # se ejecute desde la terminal o desde el botón "Run" de un editor
+    carpeta = os.path.dirname(os.path.abspath(__file__))
+    salida_csv = os.path.join(carpeta, gen["archivo_csv"])
+    salida_png = os.path.join(carpeta, gen["archivo_png"])
+    guardar_csv([(f[0], f[1], f[2]) for f in filas], salida_csv)
+    print(f"\nRutas guardadas en {salida_csv}")
     graficar([(f[0], f[1], f[2]) for f in filas], {"ACO": h_aco, "GA": h_ga},
-             optimo, gen["archivo_png"])
+             optimo, salida_png)
 
 
 if __name__ == "__main__":

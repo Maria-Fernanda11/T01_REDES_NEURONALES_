@@ -24,3 +24,6 @@ Thumbs.db
 .vscode/
 .idea/
 
+intento_servidor/ors-files/
+intento_servidor/ors-logs/
+*.osm.pbf

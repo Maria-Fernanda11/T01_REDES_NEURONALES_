@@ -5,12 +5,16 @@ Reproducible al 100 %: no usa internet ni librerías externas (solo la librería
 Coordenadas: centro urbano de cada capital (WGS84, grados decimales, 4 decimales).
 Distancias: Haversine (línea recta sobre la esfera terrestre, R = 6371 km).
 
+Distancias por carretera (opcional): cargar_distancias("carretera") lee
+distancias_carretera.csv, que se genera UNA vez con obtener_carretera.py.
+
 Uso:
-    python datos_tsp.py          -> genera capitales.csv y distancias.csv
-    from datos_tsp import CIUDADES, D   (desde los scripts de GA / ACO)
+    python datos_tsp.py          -> genera capitales.csv y distancias.csv (Haversine)
+    from datos_tsp import CIUDADES, cargar_distancias   (desde tsp_bio.py)
 """
 import csv
 import math
+import os
 
 # (ciudad, latitud, longitud) — el índice en la lista es el id del nodo (0..46)
 CAPITALES = [
@@ -111,6 +115,49 @@ def validar(capitales, D):
 CIUDADES = [c[0] for c in CAPITALES]
 D = matriz_distancias(CAPITALES)
 validar(CAPITALES, D)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Distancias por carretera (opcional)
+# ─────────────────────────────────────────────────────────────────────────────
+CARPETA = os.path.dirname(os.path.abspath(__file__))
+ARCHIVO_CARRETERA = os.path.join(CARPETA, "distancias_carretera.csv")
+
+
+def leer_matriz_carretera(archivo=ARCHIVO_CARRETERA):
+    """Lee la matriz por carretera generada (una sola vez) con obtener_carretera.py.
+
+    - Comprueba que las ciudades estén en el mismo orden que CIUDADES.
+    - Simetriza: por calles de sentido único, A→B y B→A pueden diferir unos metros;
+      ACO y 2-opt suponen d(A,B) = d(B,A), así que se usa la media de ambos sentidos.
+    """
+    if not os.path.exists(archivo):
+        raise FileNotFoundError(
+            f"No se encontró {archivo}.\n"
+            "Genera el archivo una vez (requiere internet) con:  python obtener_carretera.py\n"
+            "o usa 'distancias = haversine' en config.ini.")
+
+    with open(archivo, encoding="utf-8-sig") as f:
+        filas = list(csv.reader(f))
+    cabecera, filas = filas[0][1:], [f for f in filas[1:] if f]
+
+    if cabecera != CIUDADES or [f[0] for f in filas] != CIUDADES:
+        raise ValueError(f"{archivo}: las ciudades no coinciden (o no están en el mismo "
+                         "orden) con las de datos_tsp.py. Vuelve a generarlo.")
+    M = [[float(x) for x in f[1:]] for f in filas]
+    n = len(M)
+    D_carr = [[(M[i][j] + M[j][i]) / 2 for j in range(n)] for i in range(n)]
+    validar(CAPITALES, D_carr)
+    return D_carr
+
+
+def cargar_distancias(fuente="haversine"):
+    """Devuelve la matriz D según la fuente: 'haversine' (línea recta) o 'carretera'."""
+    if fuente == "haversine":
+        return D
+    if fuente == "carretera":
+        return leer_matriz_carretera()
+    raise ValueError(f"Fuente de distancias desconocida: '{fuente}' (usa haversine o carretera)")
 
 
 if __name__ == "__main__":
