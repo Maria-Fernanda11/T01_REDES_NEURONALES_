@@ -1,0 +1,97 @@
+algoritmo,orden,id,ciudad,longitud_total_km
+ACO,0,29,Madrid,6442.54
+ACO,1,21,Guadalajara,6442.54
+ACO,2,17,Cuenca,6442.54
+ACO,3,41,Teruel,6442.54
+ACO,4,43,Valencia,6442.54
+ACO,5,13,Castelló de la Plana/Castellón de la Plana,6442.54
+ACO,6,40,Tarragona,6442.54
+ACO,7,7,Barcelona,6442.54
+ACO,8,19,Girona,6442.54
+ACO,9,27,Lleida,6442.54
+ACO,10,23,Huesca,6442.54
+ACO,11,46,Zaragoza,6442.54
+ACO,12,39,Soria,6442.54
+ACO,13,37,Segovia,6442.54
+ACO,14,5,Ávila,6442.54
+ACO,15,36,Salamanca,6442.54
+ACO,16,45,Zamora,6442.54
+ACO,17,44,Valladolid,6442.54
+ACO,18,34,Palencia,6442.54
+ACO,19,9,Burgos,6442.54
+ACO,20,25,Logroño,6442.54
+ACO,21,32,Pamplona/Iruña,6442.54
+ACO,22,18,Donostia/San Sebastián,6442.54
+ACO,23,0,Vitoria-Gasteiz,6442.54
+ACO,24,8,Bilbao,6442.54
+ACO,25,12,Santander,6442.54
+ACO,26,4,Oviedo,6442.54
+ACO,27,26,León,6442.54
+ACO,28,28,Lugo,6442.54
+ACO,29,16,A Coruña,6442.54
+ACO,30,35,Pontevedra,6442.54
+ACO,31,33,Ourense,6442.54
+ACO,32,10,Cáceres,6442.54
+ACO,33,6,Badajoz,6442.54
+ACO,34,38,Sevilla,6442.54
+ACO,35,22,Huelva,6442.54
+ACO,36,11,Cádiz,6442.54
+ACO,37,30,Málaga,6442.54
+ACO,38,15,Córdoba,6442.54
+ACO,39,24,Jaén,6442.54
+ACO,40,20,Granada,6442.54
+ACO,41,3,Almería,6442.54
+ACO,42,31,Murcia,6442.54
+ACO,43,2,Alacant/Alicante,6442.54
+ACO,44,1,Albacete,6442.54
+ACO,45,14,Ciudad Real,6442.54
+ACO,46,42,Toledo,6442.54
+ACO,47,29,Madrid,6442.54
+GA,0,29,Madrid,6257.04
+GA,1,21,Guadalajara,6257.04
+GA,2,42,Toledo,6257.04
+GA,3,14,Ciudad Real,6257.04
+GA,4,10,Cáceres,6257.04
+GA,5,6,Badajoz,6257.04
+GA,6,22,Huelva,6257.04
+GA,7,38,Sevilla,6257.04
+GA,8,11,Cádiz,6257.04
+GA,9,30,Málaga,6257.04
+GA,10,15,Córdoba,6257.04
+GA,11,24,Jaén,6257.04
+GA,12,20,Granada,6257.04
+GA,13,3,Almería,6257.04
+GA,14,31,Murcia,6257.04
+GA,15,2,Alacant/Alicante,6257.04
+GA,16,1,Albacete,6257.04
+GA,17,17,Cuenca,6257.04
+GA,18,41,Teruel,6257.04
+GA,19,43,Valencia,6257.04
+GA,20,13,Castelló de la Plana/Castellón de la Plana,6257.04
+GA,21,40,Tarragona,6257.04
+GA,22,7,Barcelona,6257.04
+GA,23,19,Girona,6257.04
+GA,24,27,Lleida,6257.04
+GA,25,23,Huesca,6257.04
+GA,26,46,Zaragoza,6257.04
+GA,27,39,Soria,6257.04
+GA,28,25,Logroño,6257.04
+GA,29,32,Pamplona/Iruña,6257.04
+GA,30,18,Donostia/San Sebastián,6257.04
+GA,31,0,Vitoria-Gasteiz,6257.04
+GA,32,8,Bilbao,6257.04
+GA,33,12,Santander,6257.04
+GA,34,9,Burgos,6257.04
+GA,35,44,Valladolid,6257.04
+GA,36,34,Palencia,6257.04
+GA,37,26,León,6257.04
+GA,38,4,Oviedo,6257.04
+GA,39,28,Lugo,6257.04
+GA,40,16,A Coruña,6257.04
+GA,41,35,Pontevedra,6257.04
+GA,42,33,Ourense,6257.04
+GA,43,45,Zamora,6257.04
+GA,44,36,Salamanca,6257.04
+GA,45,5,Ávila,6257.04
+GA,46,37,Segovia,6257.04
+GA,47,29,Madrid,6257.04
