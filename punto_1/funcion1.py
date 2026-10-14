@@ -408,7 +408,7 @@ MAIN_ALGOS = ("gradient_descent", "genetic", "pso", "differential_evolution")
 # ======================================================================
 def optimize(algorithm="gradient_descent", problem="rosenbrock", dim=2,
              random_seed=42, max_evals=20000, record=False, plot=False,
-             modo_2d: str = "contorno_2d",
+             modo_2d: str = "superficie_3d",
              **algo_params) -> OptimizeResult:
     if algorithm not in ALGORITHMS:
         raise ValueError(f"Algoritmo '{algorithm}' no registrado. Opciones: {sorted(ALGORITHMS)}")
