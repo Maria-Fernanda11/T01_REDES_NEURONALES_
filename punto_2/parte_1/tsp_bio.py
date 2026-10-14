@@ -8,6 +8,7 @@ USO (un solo comando):
     python tsp_bio.py --seed 7              # otra semilla (misma semilla ⇒ mismo resultado)
     python tsp_bio.py --config otro.ini     # otro archivo de configuración
     python tsp_bio.py --distancias haversine  # línea recta en vez de carretera
+    python tsp_bio.py --al-reves            # compara la mejor ruta con su sentido contrario
 
 DISTANCIAS:
     - carretera (por defecto): distancias_km.csv. Es ASIMÉTRICA (ida ≠ vuelta), así
@@ -341,6 +342,32 @@ def imprimir_ruta(titulo, ruta):
         print(f"   {k + 1:>2}  {CIUDADES[a]:<22} {CIUDADES[b]:<22} {D[a][b]:8.1f} {acum:9.1f}")
 
 
+def al_reves(ruta):
+    """Mismo ciclo recorrido en sentido contrario, empezando en la misma ciudad:
+    [A, B, C, ..., Z]  →  [A, Z, ..., C, B]."""
+    return [ruta[0]] + ruta[:0:-1]
+
+
+def comparar_sentidos(ruta):
+    """Recorre la ruta en los dos sentidos y muestra, tramo a tramo, cuánto cambia
+    cada uno. Con distancias simétricas ambos sentidos miden exactamente lo mismo."""
+    inv = al_reves(ruta)
+    L_ida, L_vuelta = longitud(ruta), longitud(inv)
+    print(f"\nMISMO RECORRIDO EN SENTIDO CONTRARIO — {L_vuelta:.1f} km "
+          f"({L_vuelta - L_ida:+.1f} km respecto a {L_ida:.1f} km)")
+    print(f"   {'#':>2}  {'Desde':<22} {'Hasta':<22} {'Al revés':>9} {'Sentido óptimo':>15} {'Dif.':>7}")
+    acum = 0.0
+    for k in range(N):
+        a, b = inv[k], inv[(k + 1) % N]
+        dif = D[a][b] - D[b][a]          # este tramo al revés  −  el mismo tramo en sentido óptimo
+        marca = "  ◄" if abs(dif) >= 20 else ""
+        print(f"   {k + 1:>2}  {CIUDADES[a]:<22} {CIUDADES[b]:<22} {D[a][b]:9.1f} "
+              f"{D[b][a]:15.1f} {dif:+7.1f}{marca}")
+        acum += dif
+    print(f"   {'':>2}  {'':<22} {'TOTAL':<22} {L_vuelta:9.1f} {L_ida:15.1f} {acum:+7.1f}")
+    print("   ◄ = tramos cuya ida y vuelta difieren 20 km o más")
+
+
 def guardar_csv(resultados, archivo="resultados.csv"):
     with open(archivo, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
@@ -550,6 +577,8 @@ def main():
     ap.add_argument("--puro", action="store_true", help="atajo de --modo puro")
     ap.add_argument("--distancias", choices=["carretera", "haversine"],
                     help="fuente de distancias (prioridad sobre config.ini)")
+    ap.add_argument("--al-reves", action="store_true",
+                    help="muestra además la mejor ruta recorrida en sentido contrario, tramo a tramo")
     args = ap.parse_args()
 
     # 4.1 Configuración: defaults → config.ini → opciones de terminal
@@ -636,6 +665,12 @@ def main():
     print(f"\n   Mejor recorrido ({mejor[0]}, {mejor[2]:.1f} km, "
           f"{100 * (L_nn - mejor[2]) / L_nn:.1f} % más corto que el vecino más cercano):")
     print("   " + " → ".join(CIUDADES[c] for c in mejor[1] + [mejor[1][0]]))
+    if not SIMETRICA:      # con ida ≠ vuelta, el sentido del recorrido cambia la longitud
+        L_inv = longitud(al_reves(mejor[1]))
+        print(f"\n   El mismo recorrido en sentido contrario mide {L_inv:.1f} km "
+              f"({L_inv - mejor[2]:+.1f} km). Detalle tramo a tramo: opción --al-reves")
+    if args.al_reves:
+        comparar_sentidos(mejor[1])
 
     # 4.4 Archivos de salida: las rutas relativas se guardan junto al script,
     # se ejecute desde la terminal o desde el botón "Run" de un editor
