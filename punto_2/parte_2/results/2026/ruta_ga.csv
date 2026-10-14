@@ -1,49 +1,48 @@
-orden,Capital
-1,Vitoria-Gasteiz
-2,Pamplona/Iruña
-3,Logroño
-4,Soria
-5,Zaragoza
-6,Huesca
-7,Lleida
-8,Girona
-9,Barcelona
-10,Tarragona
-11,Guadalajara
-12,Madrid
-13,Cuenca
-14,Albacete
-15,Ciudad Real
-16,Toledo
-17,Ávila
-18,Salamanca
-19,Badajoz
-20,Huelva
-21,Cádiz
-22,Málaga
-23,Granada
-24,Murcia
-25,Castelló de la Plana/Castellón de la Plana
-26,Teruel
-27,Valencia
-28,Alacant/Alicante
-29,Almería
-30,Jaén
-31,Córdoba
-32,Sevilla
-33,Cáceres
-34,Segovia
-35,Burgos
-36,León
-37,Oviedo
-38,Pontevedra
-39,A Coruña
-40,Lugo
-41,Ourense
-42,Zamora
-43,Valladolid
-44,Palencia
-45,Santander
-46,Bilbao
-47,Donostia/San Sebastián
-48,Vitoria-Gasteiz
+orden,desde,hasta,km,horas,tiempo_eur,combustible_eur,peaje_eur,costo_eur,costo_acumulado_eur
+1,Madrid,Cuenca,167.32,2.092,54.755,14.147,3.164,72.067,72.067
+2,Cuenca,Albacete,164.31,2.054,53.77,13.893,3.107,70.771,142.838
+3,Albacete,Ciudad Real,220.32,2.754,72.1,18.629,4.166,94.895,237.733
+4,Ciudad Real,Toledo,120.41,1.505,39.404,10.181,2.326,51.912,289.644
+5,Toledo,Ávila,135.74,1.697,44.421,11.477,3.41,59.309,348.953
+6,Ávila,Salamanca,105.78,1.322,34.617,8.944,2.019,45.579,394.532
+7,Salamanca,Badajoz,291.82,3.648,95.498,24.674,5.522,125.695,520.227
+8,Badajoz,Huelva,234.55,2.932,76.756,19.832,4.445,101.034,621.261
+9,Huelva,Cádiz,210.24,2.628,68.801,17.776,3.998,90.575,711.836
+10,Cádiz,Málaga,233.98,2.925,76.57,19.784,4.442,100.796,812.632
+11,Málaga,Granada,127.62,1.595,41.764,10.791,2.727,55.281,867.913
+12,Granada,Murcia,278.24,3.478,91.054,23.526,5.262,119.842,987.755
+13,Murcia,Castelló de la Plana/Castellón de la Plana,300.14,3.752,98.221,25.378,5.676,129.274,1117.029
+14,Castelló de la Plana/Castellón de la Plana,Teruel,153.4,1.918,50.2,12.97,2.901,66.071,1183.101
+15,Teruel,Valencia,141.51,1.769,46.309,11.965,2.741,61.015,1244.116
+16,Valencia,Alacant/Alicante,178.04,2.226,58.264,15.054,3.368,76.685,1320.801
+17,Alacant/Alicante,Almería,295.67,3.696,96.758,25.0,5.591,127.348,1448.149
+18,Almería,Jaén,246.09,3.076,80.533,20.808,4.654,105.994,1554.144
+19,Jaén,Córdoba,120.62,1.508,39.473,10.199,2.281,51.953,1606.096
+20,Córdoba,Sevilla,142.48,1.781,46.627,12.047,2.73,61.404,1667.5
+21,Sevilla,Cáceres,262.01,3.275,85.743,22.154,5.018,112.914,1780.414
+22,Cáceres,Segovia,372.04,4.65,121.75,31.457,7.036,160.243,1940.657
+23,Segovia,Burgos,239.9,2.999,78.507,20.284,4.554,103.345,2044.002
+24,Burgos,León,179.86,2.248,58.859,15.208,3.424,77.491,2121.493
+25,León,Oviedo,124.81,1.56,40.844,10.553,2.322,53.719,2175.212
+26,Oviedo,Pontevedra,386.07,4.826,126.341,32.643,7.301,166.286,2341.498
+27,Pontevedra,A Coruña,133.45,1.668,43.672,11.284,2.525,57.48,2398.978
+28,A Coruña,Lugo,100.54,1.257,32.902,8.501,1.901,43.304,2442.282
+29,Lugo,Ourense,94.27,1.178,30.85,7.971,1.783,40.603,2482.886
+30,Ourense,Zamora,259.04,3.238,84.771,21.903,4.941,111.615,2594.501
+31,Zamora,Valladolid,101.35,1.267,33.167,8.569,1.917,43.653,2638.153
+32,Valladolid,Palencia,49.38,0.617,16.16,4.175,0.934,21.269,2659.422
+33,Palencia,Santander,200.74,2.509,65.692,16.973,3.796,86.462,2745.884
+34,Santander,Bilbao,105.13,1.314,34.404,8.889,1.99,45.283,2791.166
+35,Bilbao,Donostia/San Sebastián,102.85,1.286,33.658,8.696,1.945,44.299,2835.465
+36,Donostia/San Sebastián,Vitoria-Gasteiz,101.52,1.269,33.222,8.584,1.933,43.739,2879.204
+37,Vitoria-Gasteiz,Pamplona/Iruña,97.36,1.217,31.861,8.232,1.864,41.957,2921.162
+38,Pamplona/Iruña,Logroño,85.56,1.07,28.0,7.234,1.622,36.855,2958.017
+39,Logroño,Soria,101.39,1.267,33.18,8.573,1.917,43.67,3001.687
+40,Soria,Zaragoza,167.53,2.094,54.824,14.165,3.174,72.163,3073.851
+41,Zaragoza,Huesca,73.5,0.919,24.053,6.215,1.391,31.658,3105.509
+42,Huesca,Lleida,118.04,1.476,38.629,9.981,2.232,50.841,3156.35
+43,Lleida,Girona,228.94,2.862,74.921,19.358,4.329,98.608,3254.958
+44,Girona,Barcelona,102.87,1.286,33.664,8.698,1.965,44.327,3299.285
+45,Barcelona,Tarragona,97.21,1.215,31.812,8.219,1.839,41.871,3341.156
+46,Tarragona,Guadalajara,485.86,6.073,158.998,41.081,9.23,209.309,3550.464
+47,Guadalajara,Madrid,55.79,0.697,18.257,4.717,1.09,24.064,3574.528

@@ -1,74 +1,53 @@
+# Cómo ejecutar el punto 1
 
-# TSP España — paquete DEMO ejecutable
+# Cómo ejecutar el punto 2, parte 1 (TSP de las 47 capitales)
 
-## Qué es esta versión
-Esta carpeta contiene una versión, para que el equipo pruebe el software antes de sustituir los datos DEMO por los datos documentados del trabajo.
+## Requisitos
 
-**Importante:** `rutas_2020.csv` y `rutas_2026.csv` son generadas por `src/generar_demo.py` y son **datos sintéticos de demostración**. No representan tarifas, tiempos ni distancias oficiales de España.
+- **Python 3.8 o superior.** Compruébalo con `python3 --version`.
+- **No hace falta instalar ninguna librería** ni tener conexión a internet.
 
-El archivo `data/capitales.xlsx` sí es la base real entregada por el equipo, con las 47 capitales y sus coordenadas.
-
-## 1. Instalar
-
-```bash
-python -m venv .venv
-```
-Windows:
-```bash
-.venv\Scripts\activate
-```
-macOS/Linux:
-```bash
-source .venv/bin/activate
-```
+## Pasos
 
 ```bash
-python -m pip install -r requirements.txt
+git clone https://github.com/TU_USUARIO/TU_REPO.git
+cd TU_REPO/punto_2/parte_1
+python3 tsp_bio.py
 ```
 
-## 2. Ejecutar la demo completa
-Windows:
+En Windows, usa `python` en lugar de `python3`.
+
+## Resultado esperado
+
+En unos segundos, la terminal muestra la ruta tramo a tramo y un resumen:
+
+```
+   Algoritmo     Longitud  Dif. óptimo   Hallada en   Tiempo
+   ACO          6442.5 km      +3.78 %    iter. 111    ...
+   GA           6257.0 km      +0.79 %     gen. 705    ...
+```
+
+El orden de visita se guarda en `resultados_puro.csv`, dentro de la misma carpeta.
+
+## Opcional: la gráfica
+
+Para generar también la gráfica (`resultados_puro.png`), instala `matplotlib` una sola vez y vuelve a ejecutar:
+
 ```bash
-run_demo.bat
+pip install matplotlib
+python3 tsp_bio.py
 ```
 
-macOS/Linux:
+Sin `matplotlib` el programa funciona igual; solo omite la gráfica.
+
+## Opcional: versión con búsqueda local
+
 ```bash
-./run_demo.sh
+python3 tsp_bio.py --modo hibrido
 ```
 
-O manualmente:
-```bash
-python src/generar_demo.py
-python src/tsp_espana.py --scenario both --sensitivity
-```
+Con búsqueda local, ambos algoritmos alcanzan el óptimo exacto de 6207,7 km.
+Esta ejecución sobrescribe los archivos de resultados; vuelve a ejecutar `python3 tsp_bio.py` para recuperar los de la versión principal.
 
-## 3. Qué debe aparecer
-Se generan:
 
-- `results/resumen_principal.csv`
-- `results/contraste_2020_2026.csv`
-- `results/sensibilidad_2020.csv`
-- `results/sensibilidad_2026.csv`
-- gráficos de convergencia ACO/GA
-- mapas esquemáticos de las rutas
-- GIF de evolución de ACO y GA
-- matrices de costos y rutas seleccionadas para cada escenario
-
-## 4. Qué significa la arquitectura
-Para cada par de capitales puede haber varias rutas candidatas. El programa calcula:
-
-`costo = valor_hora * tiempo + peaje + combustible`
-
-con:
-
-`combustible = distancia_km * consumo_L_100km/100 * precio_eur_L`
-
-y selecciona la ruta candidata de menor costo generalizado antes de resolver el TSP.
-
-## 5. Para el trabajo real
-Después de aprobar esta demo, se reemplazarán los archivos DEMO por:
-
-- `rutas_2020.csv`: datos históricos realmente verificables.
-- `rutas_2026.csv`: datos actuales realmente verificables.
-- `parametros.json`: vehículo, combustible y valor de la hora con sus fuentes.
+# Cómo ejecutar el punto 2, parte 2 (TSP de las 47 capitales con costos)

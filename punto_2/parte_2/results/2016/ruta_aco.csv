@@ -1,49 +1,48 @@
-orden,Capital
-1,Vitoria-Gasteiz
-2,Bilbao
-3,Santander
-4,Oviedo
-5,Lugo
-6,A Coruña
-7,Pontevedra
-8,Ourense
-9,Zamora
-10,Salamanca
-11,Ávila
-12,Segovia
-13,Madrid
-14,Guadalajara
-15,Toledo
-16,Ciudad Real
-17,Córdoba
-18,Jaén
-19,Granada
-20,Málaga
-21,Almería
-22,Murcia
-23,Alacant/Alicante
-24,Valencia
-25,Castelló de la Plana/Castellón de la Plana
-26,Tarragona
-27,Barcelona
-28,Girona
-29,Lleida
-30,Huesca
-31,Zaragoza
-32,Teruel
-33,Cuenca
-34,Albacete
-35,Huelva
-36,Cádiz
-37,Sevilla
-38,Badajoz
-39,Cáceres
-40,León
-41,Palencia
-42,Valladolid
-43,Burgos
-44,Soria
-45,Logroño
-46,Pamplona/Iruña
-47,Donostia/San Sebastián
-48,Vitoria-Gasteiz
+orden,desde,hasta,km,horas,tiempo_eur,combustible_eur,peaje_eur,costo_eur,costo_acumulado_eur
+1,Madrid,Guadalajara,58.0,0.725,14.333,3.189,0.851,18.374,18.374
+2,Guadalajara,Toledo,129.0,1.612,31.879,7.094,1.946,40.919,59.293
+3,Toledo,Ciudad Real,119.0,1.488,29.408,6.544,1.818,37.769,97.062
+4,Ciudad Real,Córdoba,201.0,2.512,49.672,11.053,2.848,63.573,160.635
+5,Córdoba,Jaén,104.0,1.3,25.701,5.719,1.782,33.202,193.837
+6,Jaén,Granada,99.0,1.238,24.465,5.444,1.409,31.319,225.156
+7,Granada,Málaga,129.0,1.612,31.879,7.094,2.13,41.103,266.259
+8,Málaga,Almería,219.0,2.738,54.12,12.043,2.98,69.143,335.402
+9,Almería,Murcia,219.0,2.738,54.12,12.043,3.297,69.46,404.862
+10,Murcia,Alacant/Alicante,75.0,0.938,18.534,4.124,1.225,23.883,428.745
+11,Alacant/Alicante,Valencia,166.0,2.075,41.023,9.128,2.631,52.782,481.527
+12,Valencia,Castelló de la Plana/Castellón de la Plana,65.0,0.812,16.063,3.574,1.121,20.758,502.285
+13,Castelló de la Plana/Castellón de la Plana,Tarragona,186.0,2.325,45.965,10.228,2.809,59.002,561.287
+14,Tarragona,Barcelona,98.0,1.225,24.218,5.389,1.437,31.044,592.332
+15,Barcelona,Girona,100.0,1.25,24.712,5.499,1.535,31.746,624.078
+16,Girona,Lleida,256.0,3.2,63.264,14.077,3.382,80.724,704.802
+17,Lleida,Huesca,118.0,1.475,29.161,6.489,1.744,37.393,742.195
+18,Huesca,Zaragoza,72.0,0.9,17.793,3.959,1.087,22.839,765.034
+19,Zaragoza,Teruel,181.0,2.262,44.73,9.953,2.63,57.313,822.347
+20,Teruel,Cuenca,153.0,1.912,37.81,8.413,2.207,48.431,870.778
+21,Cuenca,Albacete,142.0,1.775,35.092,7.809,2.428,45.328,916.106
+22,Albacete,Huelva,506.0,6.325,125.045,27.825,9.144,162.014,1078.12
+23,Huelva,Cádiz,219.0,2.738,54.12,12.043,3.123,69.287,1147.407
+24,Cádiz,Sevilla,125.0,1.562,30.891,6.874,1.831,39.596,1187.003
+25,Sevilla,Badajoz,217.0,2.712,53.626,11.933,3.617,69.176,1256.179
+26,Badajoz,Cáceres,89.0,1.112,21.994,4.894,1.348,28.236,1284.415
+27,Cáceres,León,407.0,5.088,100.58,22.381,6.032,128.993,1413.408
+28,León,Palencia,130.0,1.625,32.126,7.149,1.971,41.246,1454.654
+29,Palencia,Valladolid,47.0,0.588,11.615,2.585,0.73,14.929,1469.583
+30,Valladolid,Burgos,122.0,1.525,30.149,6.709,1.909,38.767,1508.35
+31,Burgos,Soria,141.0,1.762,34.845,7.754,3.005,45.603,1553.954
+32,Soria,Logroño,105.0,1.312,25.948,5.774,1.498,33.22,1587.174
+33,Logroño,Pamplona/Iruña,88.0,1.1,21.747,4.839,1.267,27.853,1615.027
+34,Pamplona/Iruña,Donostia/San Sebastián,92.0,1.15,22.736,5.059,1.232,29.027,1644.054
+35,Donostia/San Sebastián,Vitoria-Gasteiz,118.0,1.475,29.161,6.489,1.51,37.159,1681.213
+36,Vitoria-Gasteiz,Bilbao,66.0,0.825,16.31,3.629,0.966,20.906,1702.119
+37,Bilbao,Santander,108.0,1.35,26.69,5.939,1.555,34.183,1736.302
+38,Santander,Oviedo,207.0,2.588,51.155,11.383,2.89,65.428,1801.73
+39,Oviedo,Lugo,242.0,3.025,59.804,13.308,3.755,76.867,1878.597
+40,Lugo,A Coruña,98.0,1.225,24.218,5.389,1.485,31.093,1909.689
+41,A Coruña,Pontevedra,121.0,1.512,29.902,6.654,1.973,38.529,1948.218
+42,Pontevedra,Ourense,102.0,1.275,25.207,5.609,1.455,32.271,1980.488
+43,Ourense,Zamora,284.0,3.55,70.184,15.617,3.86,89.661,2070.15
+44,Zamora,Salamanca,62.0,0.775,15.322,3.409,0.993,19.725,2089.874
+45,Salamanca,Ávila,97.0,1.212,23.971,5.334,1.577,30.882,2120.757
+46,Ávila,Segovia,67.0,0.838,16.557,3.684,1.259,21.501,2142.257
+47,Segovia,Madrid,87.0,1.088,21.5,4.784,1.384,27.668,2169.925
