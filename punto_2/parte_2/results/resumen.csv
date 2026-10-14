@@ -1,0 +1,3 @@
+escenario,algoritmo,capitales,semilla,salida,valor_hora_eur,velocidad_media_kmh_sup,combustible_eur_l,consumo_l_100km,peaje_matriz_total_eur_suma_unica,costo_total_eur,archivo_distancias,archivo_peajes,gif_ruta
+2026,ACO,47,20261008,12:00,26.18,80.0,1.799,4.7,11048.537400000001,2905.01753401,distancias_km_2026.csv,peajes_sinteticos_eur_2026.csv,results/2026/mapa_ruta_aco.gif
+2026,GA,47,20261008,12:00,26.18,80.0,1.799,4.7,11048.537400000001,3574.5283078700004,distancias_km_2026.csv,peajes_sinteticos_eur_2026.csv,results/2026/mapa_ruta_ga.gif
