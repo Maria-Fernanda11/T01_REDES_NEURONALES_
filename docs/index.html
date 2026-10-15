@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trabajo 1 — Optimización numérica, metaheurística y combinatoria</title>
+<meta name="description" content="Optimización de Rosenbrock y Rastrigin con métodos de gradiente y metaheurísticos, y ruta óptima por las 47 capitales de la España peninsular con colonias de hormigas y algoritmos genéticos.">
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']], tags: 'none' },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>
+<style>
+  :root {
+    --bg: #fcfbf8; --text: #1d2125; --muted: #5d6670; --line: #e3dfd6;
+    --accent: #94263a; --soft: #f3efe6; --card: #ffffff; --code: #f1eee7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141719; --text: #e5e5e3; --muted: #9aa2aa; --line: #2a2f34;
+      --accent: #e08a99; --soft: #1c2024; --card: #1a1e22; --code: #22272c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 18px/1.7 Georgia, "Iowan Old Style", "Times New Roman", serif; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 0 16px; }
+  header.hero { border-bottom: 1px solid var(--line); padding: 56px 0 36px; margin-bottom: 8px; }
+  .kicker { font: 600 12px/1.4 system-ui, -apple-system, sans-serif; letter-spacing: .1em;
+            text-transform: uppercase; color: var(--accent); }
+  h1 { font-size: clamp(30px, 5.5vw, 44px); line-height: 1.15; margin: 14px 0 14px; letter-spacing: -.01em; }
+  .lede { font-size: 20px; color: var(--muted); margin: 0 0 22px; }
+  .authors { font: 15px/1.6 system-ui, -apple-system, sans-serif; color: var(--muted); }
+  .authors strong { color: var(--text); font-weight: 600; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  .btn { font: 600 14px/1 system-ui, -apple-system, sans-serif; text-decoration: none;
+         padding: 11px 16px; border-radius: 7px; border: 1px solid var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); color: var(--bg); }
+  nav.toc { background: var(--soft); border: 1px solid var(--line); border-radius: 10px;
+            padding: 18px 22px; margin: 32px 0; font: 15px/1.6 system-ui, -apple-system, sans-serif; }
+  nav.toc strong { display: block; margin-bottom: 6px; }
+  nav.toc ol { margin: 0; padding-left: 20px; }
+  nav.toc ol ol { padding-left: 18px; color: var(--muted); }
+  nav.toc a { color: inherit; text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+  h2 { font: 700 28px/1.25 Georgia, serif; margin: 64px 0 16px; padding-top: 8px; }
+  h3 { font: 700 21px/1.3 Georgia, serif; margin: 40px 0 12px; }
+  h4 { font: 700 16px/1.4 system-ui, -apple-system, sans-serif; margin: 28px 0 8px; }
+  p { margin: 0 0 18px; }
+  ul, ol { padding-left: 24px; margin: 0 0 18px; }
+  li { margin-bottom: 8px; }
+  a { color: var(--accent); }
+  code, .mono { font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+                background: var(--code); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .math-block { overflow-x: auto; margin: 4px 0 20px; }
+  figure { margin: 32px 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 6px;
+               border: 1px solid var(--line); background: #fff; }
+  figure .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  figure .pair div { font: 14px/1.5 system-ui, sans-serif; color: var(--muted); text-align: center; }
+  figure .pair img { margin-bottom: 6px; }
+  @media (max-width: 600px) { figure .pair { grid-template-columns: 1fr; } }
+  figcaption { font: 14px/1.55 system-ui, -apple-system, sans-serif; color: var(--muted); margin-top: 10px; }
+  figcaption b { color: var(--text); }
+  .table-wrap { overflow-x: auto; margin: 24px 0 28px; }
+  table { border-collapse: collapse; width: 100%; font: 14.5px/1.45 system-ui, -apple-system, sans-serif; }
+  caption { caption-side: bottom; text-align: left; font-size: 13.5px; color: var(--muted); padding-top: 10px; }
+  th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  th { font-weight: 600; border-bottom: 2px solid var(--text); }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  td.wrap, th.wrap { white-space: normal; }
+  tr.best td { font-weight: 700; }
+  .callout { background: var(--soft); border-left: 3px solid var(--accent); padding: 14px 18px;
+             border-radius: 0 8px 8px 0; margin: 24px 0; }
+  .callout p:last-child { margin-bottom: 0; }
+  blockquote.prompt { margin: 16px 0 22px; padding: 14px 18px; background: var(--card);
+                      border: 1px solid var(--line); border-radius: 8px; font-style: italic; }
+  blockquote.prompt p:last-child, blockquote.prompt ol:last-child, blockquote.prompt ul:last-child { margin-bottom: 0; }
+  .refs { font-size: 15.5px; line-height: 1.6; }
+  .refs li { margin-bottom: 10px; overflow-wrap: anywhere; }
+  footer { border-top: 1px solid var(--line); margin-top: 72px; padding: 28px 0 56px;
+           font: 14px/1.6 system-ui, -apple-system, sans-serif; color: var(--muted); }
+  .back { font: 13px system-ui, sans-serif; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">Redes Neuronales y Algoritmos Bio-Inspirados · Trabajo 1</div>
+  <h1>Optimización numérica, metaheurística y combinatoria</h1>
+  <p class="lede">Del valle de Rosenbrock a las 47 capitales de España: cómo se comportan los métodos de gradiente, los algoritmos genéticos, las partículas, la evolución diferencial y las colonias de hormigas en problemas continuos y combinatorios.</p>
+  <div class="authors">
+    <strong>Juan Manuel Diaz Larrea · Kevin Hair González Duarte · Manuel Gutierrez Tangarife · Mariana Ruiz Zamora · Maria Fernanda Valencia Jimenez</strong><br>
+    Departamento de Ciencias de la Computación y de la Decisión · Facultad de Minas<br>
+    Universidad Nacional de Colombia, sede Medellín · Semestre 2026-02 · 13 de octubre de 2026
+  </div>
+  <div class="actions">
+    <a class="btn primary" href="informe.pdf">Descargar el informe (PDF)</a>
+    <a class="btn" href="https://github.com/MgtDevNet/T01_REDES_NEURONALES_">Código en GitHub</a>
+    <a class="btn" href="https://youtu.be/By5gqy9wKyw">Ver el video</a>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Contenido">
+  <strong>Contenido</strong>
+  <ol>
+    <li><a href="#parte1">Parte 1: Rosenbrock y Rastrigin</a>
+      <ol>
+        <li><a href="#p1-funciones">Funciones de prueba</a></li>
+        <li><a href="#p1-metodos">Métodos y configuración</a></li>
+        <li><a href="#p1-comparacion">Regla de comparación justa</a></li>
+        <li><a href="#p1-resultados">Resultados</a></li>
+        <li><a href="#p1-discusion">Discusión, limitaciones y conclusiones</a></li>
+      </ol>
+    </li>
+    <li><a href="#parte2">Parte 2: el viajante por la España peninsular</a>
+      <ol>
+        <li><a href="#p2-contexto">Contexto y marco teórico</a></li>
+        <li><a href="#p2-matematica">Fundamentación matemática</a></li>
+        <li><a href="#p2-datos">Datos geográficos y matrices</a></li>
+        <li><a href="#p2-sol1">Solución: ruta más corta</a></li>
+        <li><a href="#p2-costos">Parámetros económicos y función de costo</a></li>
+        <li><a href="#p2-sol2">Solución: ruta más barata</a></li>
+      </ol>
+    </li>
+    <li><a href="#ia">Uso de IA</a></li>
+    <li><a href="#conclusiones">Resultados, discusión y conclusiones</a></li>
+    <li><a href="#referencias">Referencias</a></li>
+  </ol>
+</nav>
+
+<!-- ======================================================= PARTE 1 -->
+<h2 id="parte1">Parte 1: Rosenbrock y Rastrigin</h2>
+
+<h3 id="p1-funciones">Fundamentación matemática: funciones de prueba</h3>
+<p>Antes de comparar algoritmos se necesitan problemas de referencia con propiedades matemáticas conocidas: dominio, ubicación del mínimo global y complejidad de la superficie. Se seleccionaron las funciones de Rosenbrock y Rastrigin (Rosenbrock, 1960; Rastrigin, 1974), que son contrastantes: la primera presenta un valle estrecho y curvo que dificulta la convergencia hacia el mínimo global, mientras que la segunda es altamente multimodal y exige exploración global. Así permiten evaluar tanto la explotación de los métodos basados en gradiente como la exploración de los metaheurísticos.</p>
+
+<h4>Función de Rosenbrock</h4>
+<p>También conocida como la <em>función banana</em>, se define para \(\mathbf{x}\in\mathbb{R}^d\) como</p>
+<div class="math-block">\[ f(\mathbf{x}) = \sum_{i=1}^{d-1}\left[100\,(x_{i+1}-x_i^2)^2 + (1-x_i)^2\right]. \]</div>
+<ul>
+  <li><strong>Dominio.</strong> En los experimentos se restringe a \(\mathbf{x}\in[-2{,}048,\ 2{,}048]^d\).</li>
+  <li><strong>Mínimo global.</strong> Se alcanza en \(\mathbf{x}^*=(1,\dots,1)\), con \(f(\mathbf{x}^*)=0\).</li>
+  <li><strong>Geometría.</strong> No es convexa, pero en 2D y 3D tiene un único mínimo global (para \(d\ge 4\) aparece además un mínimo local cerca de \((-1,1,\dots,1)\)). Su dificultad es el condicionamiento: el óptimo está en un valle parabólico estrecho y curvo (\(x_2\approx x_1^2\)). En 2D, el Hessiano en el óptimo es
+    \[ H=\begin{pmatrix}802 & -400\\ -400 & 200\end{pmatrix}, \]
+    con autovalores \(\approx 1001{,}6\) y \(\approx 0{,}4\), es decir, un número de condición \(\kappa\approx 2500\). Un método de gradiente debe usar pasos pequeños por la dirección de mayor curvatura y avanza muy lentamente a lo largo del valle.</li>
+</ul>
+
+<h4>Función de Rastrigin</h4>
+<p>Es una función multimodal con mínimos locales distribuidos periódicamente, definida como</p>
+<div class="math-block">\[ f(\mathbf{x}) = 10d + \sum_{i=1}^{d}\left[x_i^2 - 10\cos(2\pi x_i)\right]. \]</div>
+<ul>
+  <li><strong>Dominio.</strong> Se considera \(\mathbf{x}\in[-5{,}12,\ 5{,}12]^d\).</li>
+  <li><strong>Mínimo global.</strong> Se encuentra en \(\mathbf{x}^*=(0,\dots,0)\), con \(f(\mathbf{x}^*)=0\).</li>
+  <li><strong>Geometría.</strong> Tiene un mínimo local cerca de cada punto de coordenadas enteras, es decir, del orden de \(11^d\) mínimos en el dominio (\(\approx 121\) en 2D y \(\approx 1\,331\) en 3D). Cada pozo es localmente convexo y bien condicionado (la segunda derivada por coordenada en el origen es \(2+40\pi^2\approx 397\)), de modo que la dificultad no es el condicionamiento sino la exploración global: un método local converge al pozo donde empieza.</li>
+</ul>
+
+<h3 id="p1-metodos">Métodos y configuración</h3>
+<p>Todos los métodos comparten la misma interfaz y el mismo presupuesto máximo de evaluaciones equivalentes. Los dominios son los de cada función y las soluciones se restringen a ellos.</p>
+<ul>
+  <li><strong>GD proyectado con Armijo.</strong> Gradiente por diferencias centrales (\(h=10^{-6}\)), paso inicial \(\alpha_0\) con retroceso (\(\alpha\leftarrow \text{factor}\cdot\alpha\)), condición de Armijo proyectada con \(c=10^{-4}\) y proyección al dominio. El único elemento aleatorio es el punto inicial uniforme. Se detiene si \(\lVert\nabla f\rVert<10^{-8}\) o si la búsqueda lineal falla.</li>
+  <li><strong>GA real.</strong> Selección por torneo (\(k=3\)), cruce BLX-\(\alpha\), mutación gaussiana por gen con probabilidad \(1/d\) y desviación decreciente de forma geométrica (de 0,1 a \(10^{-4}\) del rango), y elitismo de 2 individuos.</li>
+  <li><strong>PSO.</strong> Topología global con constricción de Clerc–Kennedy (\(c_1=c_2=1{,}49618\)), velocidad máxima del 20 % del rango y velocidad nula al tocar la frontera.</li>
+  <li><strong>DE/rand/1/bin.</strong> Mutante \(\mathbf{v}=\mathbf{x}_a+F(\mathbf{x}_b-\mathbf{x}_c)\), cruce binomial con al menos un gen del mutante y selección voraz uno a uno.</li>
+  <li><strong>Líneas base.</strong> Búsqueda aleatoria uniforme y recocido simulado (Metropolis, enfriamiento geométrico, vecino gaussiano).</li>
+</ul>
+
+<h4>Sintonización de hiperparámetros</h4>
+<p>Se hizo una búsqueda en rejilla sobre Rosenbrock 2D con 4 000 evaluaciones y las semillas 10, 20 y 30, eligiendo la combinación con menor mediana de \(f\). Las configuraciones elegidas se usaron en todos los escenarios (Tabla 1).</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Método</th><th>Hiperparámetros elegidos</th></tr></thead>
+  <tbody>
+    <tr><td>GD</td><td><code>tasa_aprendizaje_inicial = 0,5</code>; <code>factor_reduccion = 0,3</code></td></tr>
+    <tr><td>GA</td><td><code>tam_poblacion = 30</code>; <code>prob_cruce = 0,95</code>; <code>alpha_blx = 0,3</code></td></tr>
+    <tr><td>PSO</td><td><code>inercia = 0,5</code>; <code>num_particulas = 30</code></td></tr>
+    <tr><td>DE</td><td>\(F=0{,}5\); \(CR=0{,}9\); <code>tam_poblacion = 30</code></td></tr>
+    <tr><td>Búsqueda aleatoria y recocido</td><td>Valores por defecto (sin sintonizar)</td></tr>
+  </tbody>
+  <caption>Tabla 1. Hiperparámetros elegidos por la búsqueda en rejilla.</caption>
+</table></div>
+
+<h3 id="p1-comparacion">Regla de comparación justa</h3>
+<p>Comparar por número de iteraciones favorece a quien hace más trabajo por iteración, así que se contabiliza el costo real en evaluaciones de la función. Se reportan por separado el número de evaluaciones directas de \(f\) (\(n_f\): punto inicial, poblaciones y pruebas de la búsqueda lineal) y el número de gradientes calculados (\(n_{\text{grad}}\)).</p>
+<p><strong>Equivalencia propuesta.</strong> Un gradiente por diferencias centrales requiere \(f(\mathbf{x}+h\mathbf{e}_i)\) y \(f(\mathbf{x}-h\mathbf{e}_i)\) para cada una de las \(d\) direcciones canónicas, es decir, exactamente \(2d\) evaluaciones de \(f\). Por tanto:</p>
+<div class="math-block">\[ n_{\text{equiv}} = n_f + 2d\,n_{\text{grad}}. \]</div>
+<p>Las \(2d\) evaluaciones internas del gradiente no se suman a \(n_f\): se cuentan una sola vez, dentro de \(n_{\text{grad}}\). Para los métodos sin derivadas, \(n_{\text{grad}}=0\) y \(n_{\text{equiv}}=n_f\). El código verifica el conteo con una aserción: las llamadas reales a \(f\) deben ser iguales a \(n_f+2d\,n_{\text{grad}}\). El presupuesto es el mismo para todos los métodos: 10 000 evaluaciones equivalentes.</p>
+<p>Esta equivalencia supone un gradiente numérico por diferencias centrales. Con diferencias hacia adelante el costo sería \(d+1\) evaluaciones y con un gradiente analítico o diferenciación automática sería un pequeño múltiplo del costo de \(f\), lo que favorecería más a GD; se discute en las <a href="#p1-limitaciones">limitaciones</a>.</p>
+
+<h4>Protocolo estadístico</h4>
+<ul>
+  <li>30 corridas independientes por configuración (semillas 0 a 29), para cada método, función y dimensión.</li>
+  <li>Estadísticos del valor final de \(f\): media, desviación estándar (muestral, ddof = 1), mediana, mejor y peor valor.</li>
+  <li>Tasa de éxito: fracción de corridas con \(f\) final por debajo de un umbral. Umbrales definidos: \(10^{-4}\) para Rosenbrock (cercanía al óptimo global en el valle) y \(10^{-2}\) para Rastrigin (distingue el pozo global de cualquier mínimo local, cuyo valor mínimo es \(\approx 0{,}995\)).</li>
+  <li>Además se reporta el promedio de evaluaciones equivalentes necesarias para alcanzar el umbral, calculado solo sobre las corridas exitosas.</li>
+</ul>
+
+<h3 id="p1-resultados">Resultados</h3>
+<p>Las Tablas 2–5 resumen el valor final de \(f\) y el costo en evaluaciones (\(n_f\), \(n_{\text{grad}}\) y \(n_{\text{equiv}}\)) para cada escenario; la Tabla 6 muestra cuántas evaluaciones necesita cada método para alcanzar el umbral. Los valores como <code>3.1-7</code> se leen \(3{,}1\times10^{-7}\).</p>
+
+<div class="table-wrap"><table>
+  <thead><tr><th>Método</th><th class="n">Media</th><th class="n">Desv. est.</th><th class="n">Mejor</th><th class="n">Peor</th><th class="n">Éxito</th><th class="n">\(n_f\)</th><th class="n">\(n_{\text{grad}}\)</th><th class="n">\(n_{\text{equiv}}\)</th></tr></thead>
+  <tbody>
+    <tr><td>GD</td><td class="n">0.0122</td><td class="n">0.0284</td><td class="n">3.1-7</td><td class="n">0.112</td><td class="n">23.3 %</td><td class="n">5734</td><td class="n">1066</td><td class="n">9999</td></tr>
+    <tr><td>GA</td><td class="n">9.0-10</td><td class="n">1.5-9</td><td class="n">0</td><td class="n">7.7-9</td><td class="n">100.0 %</td><td class="n">9998</td><td class="n">0</td><td class="n">9998</td></tr>
+    <tr><td>PSO</td><td class="n">3.6-17</td><td class="n">1.5-16</td><td class="n">2.4-27</td><td class="n">8.4-16</td><td class="n">100.0 %</td><td class="n">9990</td><td class="n">0</td><td class="n">9990</td></tr>
+    <tr><td>DE</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">100.0 %</td><td class="n">9990</td><td class="n">0</td><td class="n">9990</td></tr>
+    <tr><td>Búsqueda aleatoria</td><td class="n">6.6-3</td><td class="n">6.7-3</td><td class="n">2.5-6</td><td class="n">0.0302</td><td class="n">3.3 %</td><td class="n">10000</td><td class="n">0</td><td class="n">10000</td></tr>
+    <tr><td>Recocido simulado</td><td class="n">2.3-4</td><td class="n">2.8-4</td><td class="n">1.8-6</td><td class="n">1.3-3</td><td class="n">36.7 %</td><td class="n">10000</td><td class="n">0</td><td class="n">10000</td></tr>
+  </tbody>
+  <caption>Tabla 2. Rosenbrock 2D (30 corridas, 10 000 evaluaciones equivalentes). Éxito: \(f&lt;10^{-4}\).</caption>
+</table></div>
+
+<div class="table-wrap"><table>
+  <thead><tr><th>Método</th><th class="n">Media</th><th class="n">Desv. est.</th><th class="n">Mejor</th><th class="n">Peor</th><th class="n">Éxito</th><th class="n">\(n_f\)</th><th class="n">\(n_{\text{grad}}\)</th><th class="n">\(n_{\text{equiv}}\)</th></tr></thead>
+  <tbody>
+    <tr><td>GD</td><td class="n">0.141</td><td class="n">0.723</td><td class="n">8.6-5</td><td class="n">3.97</td><td class="n">3.3 %</td><td class="n">4809</td><td class="n">865</td><td class="n">9998</td></tr>
+    <tr><td>GA</td><td class="n">0.175</td><td class="n">0.536</td><td class="n">3.9-3</td><td class="n">3</td><td class="n">0.0 %</td><td class="n">9998</td><td class="n">0</td><td class="n">9998</td></tr>
+    <tr><td>PSO</td><td class="n">2.0-3</td><td class="n">1.3-3</td><td class="n">2.2-4</td><td class="n">4.5-3</td><td class="n">0.0 %</td><td class="n">9990</td><td class="n">0</td><td class="n">9990</td></tr>
+    <tr><td>DE</td><td class="n">0.0224</td><td class="n">0.0515</td><td class="n">0</td><td class="n">0.277</td><td class="n">36.7 %</td><td class="n">9990</td><td class="n">0</td><td class="n">9990</td></tr>
+    <tr><td>Búsqueda aleatoria</td><td class="n">0.43</td><td class="n">0.299</td><td class="n">0.062</td><td class="n">1.01</td><td class="n">0.0 %</td><td class="n">10000</td><td class="n">0</td><td class="n">10000</td></tr>
+    <tr><td>Recocido simulado</td><td class="n">0.0119</td><td class="n">0.0114</td><td class="n">5.2-4</td><td class="n">0.0497</td><td class="n">0.0 %</td><td class="n">10000</td><td class="n">0</td><td class="n">10000</td></tr>
+  </tbody>
+  <caption>Tabla 3. Rosenbrock 3D. Éxito: \(f&lt;10^{-4}\).</caption>
+</table></div>
+
+<div class="table-wrap"><table>
+  <thead><tr><th>Método</th><th class="n">Media</th><th class="n">Desv. est.</th><th class="n">Mejor</th><th class="n">Peor</th><th class="n">Éxito</th><th class="n">\(n_f\)</th><th class="n">\(n_{\text{grad}}\)</th><th class="n">\(n_{\text{equiv}}\)</th></tr></thead>
+  <tbody>
+    <tr><td>GD</td><td class="n">5.6</td><td class="n">4.83</td><td class="n">0</td><td class="n">19.9</td><td class="n">13.3 %</td><td class="n">2515</td><td class="n">320</td><td class="n">3794</td></tr>
+    <tr><td>GA</td><td class="n">3.2-9</td><td class="n">5.3-9</td><td class="n">0</td><td class="n">2.2-8</td><td class="n">100.0 %</td><td class="n">9998</td><td class="n">0</td><td class="n">9998</td></tr>
+    <tr><td>PSO</td><td class="n">0.0995</td><td class="n">0.304</td><td class="n">0</td><td class="n">0.995</td><td class="n">90.0 %</td><td class="n">9990</td><td class="n">0</td><td class="n">9990</td></tr>
+    <tr><td>DE</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">100.0 %</td><td class="n">9990</td><td class="n">0</td><td class="n">9990</td></tr>
+    <tr><td>Búsqueda aleatoria</td><td class="n">0.609</td><td class="n">0.367</td><td class="n">0.0473</td><td class="n">1.19</td><td class="n">0.0 %</td><td class="n">10000</td><td class="n">0</td><td class="n">10000</td></tr>
+    <tr><td>Recocido simulado</td><td class="n">4.32</td><td class="n">4.84</td><td class="n">1.6-4</td><td class="n">17.9</td><td class="n">3.3 %</td><td class="n">10000</td><td class="n">0</td><td class="n">10000</td></tr>
+  </tbody>
+  <caption>Tabla 4. Rastrigin 2D. Éxito: \(f&lt;10^{-2}\).</caption>
+</table></div>
+
+<div class="table-wrap"><table>
+  <thead><tr><th>Método</th><th class="n">Media</th><th class="n">Desv. est.</th><th class="n">Mejor</th><th class="n">Peor</th><th class="n">Éxito</th><th class="n">\(n_f\)</th><th class="n">\(n_{\text{grad}}\)</th><th class="n">\(n_{\text{equiv}}\)</th></tr></thead>
+  <tbody>
+    <tr><td>GD</td><td class="n">16.3</td><td class="n">10.7</td><td class="n">0.995</td><td class="n">40.8</td><td class="n">0.0 %</td><td class="n">3738</td><td class="n">384</td><td class="n">6041</td></tr>
+    <tr><td>GA</td><td class="n">0.0995</td><td class="n">0.304</td><td class="n">1.0-10</td><td class="n">0.995</td><td class="n">90.0 %</td><td class="n">9998</td><td class="n">0</td><td class="n">9998</td></tr>
+    <tr><td>PSO</td><td class="n">0.398</td><td class="n">0.671</td><td class="n">0</td><td class="n">2.98</td><td class="n">66.7 %</td><td class="n">9990</td><td class="n">0</td><td class="n">9990</td></tr>
+    <tr><td>DE</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n">100.0 %</td><td class="n">9990</td><td class="n">0</td><td class="n">9990</td></tr>
+    <tr><td>Búsqueda aleatoria</td><td class="n">3.12</td><td class="n">1.1</td><td class="n">0.931</td><td class="n">5.11</td><td class="n">0.0 %</td><td class="n">10000</td><td class="n">0</td><td class="n">10000</td></tr>
+    <tr><td>Recocido simulado</td><td class="n">9.11</td><td class="n">6.07</td><td class="n">1.02</td><td class="n">22.6</td><td class="n">0.0 %</td><td class="n">10000</td><td class="n">0</td><td class="n">10000</td></tr>
+  </tbody>
+  <caption>Tabla 5. Rastrigin 3D. Éxito: \(f&lt;10^{-2}\).</caption>
+</table></div>
+
+<div class="table-wrap"><table>
+  <thead><tr><th>Método</th><th class="n">Rosenbrock 2D</th><th class="n">Rosenbrock 3D</th><th class="n">Rastrigin 2D</th><th class="n">Rastrigin 3D</th></tr></thead>
+  <tbody>
+    <tr><td>GD</td><td class="n">7308 (7/30)</td><td class="n">8944 (1/30)</td><td class="n">74 (4/30)</td><td class="n">—</td></tr>
+    <tr><td>GA</td><td class="n">2157 (30/30)</td><td class="n">—</td><td class="n">999 (30/30)</td><td class="n">1561 (27/30)</td></tr>
+    <tr><td>PSO</td><td class="n">1450 (30/30)</td><td class="n">—</td><td class="n">744 (27/30)</td><td class="n">1521 (20/30)</td></tr>
+    <tr><td>DE</td><td class="n">867 (30/30)</td><td class="n">2032 (11/30)</td><td class="n">1295 (30/30)</td><td class="n">2976 (30/30)</td></tr>
+    <tr><td>Búsqueda aleatoria</td><td class="n">8761 (1/30)</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>
+    <tr><td>Recocido simulado</td><td class="n">7024 (11/30)</td><td class="n">—</td><td class="n">2025 (1/30)</td><td class="n">—</td></tr>
+  </tbody>
+  <caption class="wrap">Tabla 6. Evaluaciones equivalentes promedio hasta alcanzar el umbral; entre paréntesis, las corridas exitosas (de 30). “—” indica que ninguna corrida alcanzó el umbral.</caption>
+</table></div>
+
+<figure>
+  <img src="img/p1_convergencia.png" alt="Curvas de convergencia promedio de cada algoritmo frente a las evaluaciones equivalentes, en Rosenbrock y Rastrigin 2D y 3D" loading="lazy">
+  <figcaption><b>Figura 1.</b> Curvas de convergencia promedio frente al presupuesto de evaluaciones equivalentes. El valor −30 corresponde a \(f=0\) exacto (se trunca para poder graficar).</figcaption>
+</figure>
+<p>En la Figura 1 se ilustra la velocidad y trayectoria de convergencia promedio de cada algoritmo a lo largo del presupuesto de evaluaciones computacionales equivalentes (\(n_f+2d\cdot n_{\text{grad}}\)). A partir de las curvas se evidencia de forma contundente que <strong>Evolución Diferencial (DE)</strong> es el método con el mejor desempeño general de todo el estudio: no solo exhibe la pendiente de descenso más pronunciada en las etapas tempranas, sino que es el único algoritmo capaz de alcanzar el límite numérico de precisión (\(\log_{10}(f_{\text{best}})\approx-30\)) de manera sistemática tanto en espacios continuos unimodales con crestas estrechas (Rosenbrock 2D) como en paisajes altamente multimodales y rugosos (Rastrigin 2D y 3D), requiriendo menos de 6 000 evaluaciones equivalentes para colapsar en el mínimo global. Si bien PSO muestra una rápida caída inicial en Rastrigin 2D y un progreso competitivo en Rosenbrock 3D, sufre estancamiento prematuro en Rastrigin 3D; mientras que el Algoritmo Genético converge con lentitud y tanto Descenso por Gradiente como la Búsqueda Aleatoria presentan mesetas tempranas sin capacidad de escape. Por consiguiente, el operador de mutación vectorial guiado de Evolución Diferencial ofrece el mejor equilibrio entre exploración global y explotación local frente a cualquier otra técnica evaluada.</p>
+
+<figure>
+  <img src="img/p1_boxplot.png" alt="Diagramas de caja del valor final de f por algoritmo, función y dimensión" loading="lazy">
+  <figcaption><b>Figura 2.</b> Boxplot de los valores de \(f\) para los diferentes algoritmos y dimensiones.</figcaption>
+</figure>
+<p>En la Figura 2 se presentan los boxplots de los valores finales de \(f\) en 30 corridas. La línea roja discontinua marca el umbral de éxito usado para Rosenbrock, \(f&lt;10^{-4}\); para Rastrigin se adopta el umbral distinto \(f&lt;10^{-2}\). DE muestra la mayor tasa de éxito global: 100 % en Rosenbrock 2D y Rastrigin 2D/3D, y 36,7 % en Rosenbrock 3D. GA alcanza 100 % en Rastrigin 2D y 90 % en 3D, pero no logra el umbral en Rosenbrock 3D. PSO alcanza 100 % en Rosenbrock 2D y 90 %/66,7 % en Rastrigin 2D/3D, pero no alcanza el umbral en Rosenbrock 3D. GD obtiene tasas de éxito de 23,3 % y 3,3 % en Rosenbrock 2D/3D, y de 13,3 % y 0 % en Rastrigin 2D/3D. En conjunto, la figura muestra que el desempeño depende del algoritmo, la función y la dimensión.</p>
+
+<h3 id="p1-discusion">Discusión</h3>
+<h4>Qué aportó el descenso por gradiente</h4>
+<ul>
+  <li><strong>Eficiencia local y convexidad local.</strong> Cuando el problema es localmente convexo y bien condicionado, GD usa pocas evaluaciones. En Rastrigin cada pozo cumple esa condición: GD consume en promedio 3 794 (2D) y 6 041 (3D) de las 10 000 evaluaciones equivalentes, converge rápido al mínimo local del pozo donde empieza, el gradiente se anula y se detiene sin agotar el presupuesto.</li>
+  <li><strong>Límite por condicionamiento (Rosenbrock).</strong> Con \(\kappa\approx2500\) en el óptimo, la búsqueda de Armijo reduce el paso y el avance a lo largo del valle es lento. GD agota el presupuesto (\(\approx\)1 066 gradientes en 2D, 865 en 3D) y solo alcanza el umbral en 23,3 % de las corridas en 2D y en 3,3 % en 3D; la media (0,0122 y 0,14) está dominada por unas pocas corridas malas.</li>
+  <li><strong>Límite por multimodalidad (Rastrigin).</strong> Con \(\approx121\) mínimos en 2D y \(\approx1\,331\) en 3D, GD termina en pozos locales: \(f\) media 5,6 en 2D y 16,3 en 3D, y éxito de 13,3 % y 0 %. El 13,3 % en 2D es mayor que la probabilidad de empezar dentro del pozo global (\(\approx1\) %); una explicación plausible es que con paso inicial 0,5 y gradientes de decenas de unidades las primeras iteraciones saltan entre pozos antes de que el paso se reduzca. Es una hipótesis que no se verificó aquí.</li>
+  <li><strong>Costo creciente con \(d\).</strong> Cada gradiente cuesta \(2d\) evaluaciones (4 en 2D, 6 en 3D), así que pasar a 3D reduce los pasos disponibles con el mismo presupuesto.</li>
+</ul>
+<h4>Qué aportaron los métodos heurísticos</h4>
+<ul>
+  <li><strong>DE</strong> fue el método más robusto: 100 % de éxito en Rosenbrock 2D y en Rastrigin 2D y 3D, con \(f=0\) exacto, y 36,7 % en Rosenbrock 3D (el mejor de ese escenario). Las diferencias entre individuos se adaptan a la forma de la población: se alargan a lo largo del valle de Rosenbrock y permiten explorar varios pozos de Rastrigin a la vez.</li>
+  <li><strong>PSO</strong> es muy preciso en Rosenbrock 2D (media \(3{,}6\times10^{-17}\)) y tiene la menor dispersión en Rosenbrock 3D (mediana \(\approx1{,}8\times10^{-3}\), con 0 % de éxito solo por lo estricto del umbral \(10^{-4}\)). En Rastrigin pierde fiabilidad (90 % en 2D, 66,7 % en 3D): el enjambre converge hacia el mejor global y a veces lo hace en un pozo local.</li>
+  <li><strong>GA</strong> es muy bueno en Rastrigin (100 % en 2D, 90 % en 3D), donde la mutación gaussiana decreciente refina bien dentro del pozo global, pero es lento en el valle de Rosenbrock 3D (0 % de éxito, media 0,175).</li>
+  <li><strong>Costo.</strong> Los heurísticos no usan gradiente, de modo que consumen casi todo el presupuesto. Las líneas base muestran que su ventaja no es solo cantidad de evaluaciones: con el mismo presupuesto, la búsqueda aleatoria casi nunca alcanza el umbral (0 % salvo 3,3 % en Rosenbrock 2D) y el recocido simulado sin sintonizar es débil excepto en Rosenbrock 2D (36,7 %).</li>
+</ul>
+<h4>Efecto de la dimensión y del umbral</h4>
+<p>Pasar de 2D a 3D empeora a todos los métodos: crece el volumen del espacio de búsqueda, crece el número de pozos de Rastrigin (\(\approx121\) a \(\approx1\,331\)) y el valle de Rosenbrock se complica. En Rosenbrock 3D ningún método es fiable con el umbral \(10^{-4}\) en 10 000 evaluaciones; la conclusión sobre PSO depende del umbral, porque su mediana está cerca de \(10^{-3}\) con muy poca dispersión. Por eso se recomienda interpretar siempre el éxito junto con la distribución del valor final (Figura 2) y las evaluaciones necesarias (Tabla 6).</p>
+<h4>Síntesis</h4>
+<p>El descenso por gradiente aporta eficiencia local: pocas evaluaciones y buen valor final si la cuenca inicial es la correcta, pero no explora y se degrada con el mal condicionamiento. Los heurísticos aportan exploración global y tolerancia a muchos mínimos locales a cambio de gastar el presupuesto completo. La geometría explica el reparto: Rosenbrock (un solo mínimo, valle mal condicionado) premia a quienes se adaptan a la forma del valle (DE, PSO), y Rastrigin (muchísimos mínimos localmente convexos y bien condicionados) premia a quienes exploran (DE, GA). Una estrategia híbrida —heurístico para ubicar la cuenca y GD para refinar— es una continuación natural, pero no se evaluó en este estudio.</p>
+
+<h3 id="p1-limitaciones">Limitaciones</h3>
+<ul>
+  <li>Los hiperparámetros se sintonizaron solo en Rosenbrock 2D con 3 semillas y 4 000 evaluaciones, y se reutilizaron en los demás escenarios; por ejemplo, la inercia 0,5 elegida para PSO favorece explotar y puede perjudicarlo en Rastrigin. Además, las semillas 10 y 20 de la sintonización también están entre las 30 semillas de evaluación.</li>
+  <li>La equivalencia de \(2d\) evaluaciones por gradiente es una elección. Con gradiente analítico, GD haría mucho más trabajo útil con el mismo presupuesto y su desempeño en Rosenbrock mejoraría; conviene repetir el análisis con costos de gradiente distintos (por ejemplo 1, \(d+1\) y \(2d\)).</li>
+  <li>Un único presupuesto (10 000), dos funciones y dimensiones 2 y 3; no se aplicaron pruebas de hipótesis (por ejemplo Wilcoxon o Mann–Whitney) para comparar pares de métodos.</li>
+  <li>Las líneas base no se sintonizaron.</li>
+</ul>
+
+<h3>Conclusiones</h3>
+<ul>
+  <li>Con el mismo presupuesto en evaluaciones equivalentes, DE fue el método más confiable en las cuatro configuraciones; PSO y GA fueron competitivos según la función.</li>
+  <li>GD es el más barato cuando la cuenca inicial es buena, pero falla en Rastrigin (0 % en 3D) y es lento en Rosenbrock por el condicionamiento.</li>
+  <li>Conviene reportar siempre \(n_f\) y \(n_{\text{grad}}\) por separado, la equivalencia usada y varias corridas con distribución completa, porque la media sola oculta fallos (por ejemplo, GD en Rosenbrock 3D).</li>
+  <li>Rosenbrock 3D con umbral \(10^{-4}\) sigue siendo difícil para todos los métodos en 10 000 evaluaciones.</li>
+</ul>
+<a class="back" href="#parte1">↑ Volver al inicio de la Parte 1</a>
+
+<!-- ======================================================= PARTE 2 -->
+<h2 id="parte2">Parte 2: el viajante por la España peninsular</h2>
+
+<h3 id="p2-contexto">Contexto geográfico: España peninsular</h3>
+<p>Antes de abordar el problema del vendedor viajero, es necesario establecer con claridad el ámbito geográfico en el que se desarrolla el problema. El término <em>España peninsular</em> hace referencia a la parte del territorio español situada en la Península Ibérica. Por tanto, no constituye un país diferente de España, sino una delimitación geográfica del territorio español.</p>
+<p>La Península Ibérica se encuentra en el extremo suroccidental de Europa y está ocupada principalmente por España y Portugal, además de incluir los territorios de Andorra y Gibraltar. España, por su parte, posee territorios que no se encuentran en la península, entre ellos las Islas Baleares, las Islas Canarias y las ciudades autónomas de Ceuta y Melilla. En consecuencia, cuando se utiliza el término <em>España peninsular</em>, se excluyen estos territorios y se considera únicamente la parte de España ubicada en la Península Ibérica.</p>
+<figure>
+  <img src="img/p2_mapa_peninsula.png" alt="Mapa físico de la Península Ibérica" loading="lazy">
+  <figcaption><b>Figura 3.</b> Mapa físico de la Península Ibérica. Fuente: Emilio Gómez Fernández, Wikimedia Commons, licencia CC BY-SA 3.0.</figcaption>
+</figure>
+<p>Esta delimitación es especialmente importante para el presente trabajo, puesto que el problema planteado considera las capitales de las provincias españolas situadas en el territorio peninsular. España está organizada territorialmente en 50 provincias, además de las ciudades autónomas de Ceuta y Melilla. De las 50 provincias, tres son insulares: Illes Balears, Las Palmas y Santa Cruz de Tenerife. Al excluir estas tres provincias se obtienen las 47 provincias peninsulares consideradas en el problema.</p>
+<p>Por consiguiente, las ciudades que constituyen los puntos que debe visitar el vendedor son las capitales de esas 47 provincias. El problema no considera Palma, Las Palmas de Gran Canaria ni Santa Cruz de Tenerife debido a su carácter insular. Tampoco se incluyen Ceuta y Melilla, puesto que son ciudades autónomas, no provincias, y además no forman parte de la red de carreteras peninsular.</p>
+
+<div class="table-wrap"><table>
+  <thead><tr><th>Provincia</th><th>Capital</th><th>Provincia</th><th>Capital</th><th>Provincia</th><th>Capital</th></tr></thead>
+  <tbody>
+    <tr><td>Álava (Araba)</td><td>Vitoria-Gasteiz</td><td>A Coruña</td><td>A Coruña</td><td>Navarra</td><td>Pamplona (Iruña)</td></tr>
+    <tr><td>Albacete</td><td>Albacete</td><td>Cuenca</td><td>Cuenca</td><td>Ourense</td><td>Ourense</td></tr>
+    <tr><td>Alicante (Alacant)</td><td>Alicante (Alacant)</td><td>Gipuzkoa</td><td>Donostia / San Sebastián</td><td>Palencia</td><td>Palencia</td></tr>
+    <tr><td>Almería</td><td>Almería</td><td>Girona</td><td>Girona</td><td>Pontevedra</td><td>Pontevedra</td></tr>
+    <tr><td>Asturias</td><td>Oviedo</td><td>Granada</td><td>Granada</td><td>Salamanca</td><td>Salamanca</td></tr>
+    <tr><td>Ávila</td><td>Ávila</td><td>Guadalajara</td><td>Guadalajara</td><td>Segovia</td><td>Segovia</td></tr>
+    <tr><td>Badajoz</td><td>Badajoz</td><td>Huelva</td><td>Huelva</td><td>Sevilla</td><td>Sevilla</td></tr>
+    <tr><td>Barcelona</td><td>Barcelona</td><td>Huesca</td><td>Huesca</td><td>Soria</td><td>Soria</td></tr>
+    <tr><td>Bizkaia (Vizcaya)</td><td>Bilbao</td><td>Jaén</td><td>Jaén</td><td>Tarragona</td><td>Tarragona</td></tr>
+    <tr><td>Burgos</td><td>Burgos</td><td>La Rioja</td><td>Logroño</td><td>Teruel</td><td>Teruel</td></tr>
+    <tr><td>Cáceres</td><td>Cáceres</td><td>León</td><td>León</td><td>Toledo</td><td>Toledo</td></tr>
+    <tr><td>Cádiz</td><td>Cádiz</td><td>Lleida (Lérida)</td><td>Lleida</td><td>Valencia</td><td>Valencia</td></tr>
+    <tr><td>Cantabria</td><td>Santander</td><td>Lugo</td><td>Lugo</td><td>Valladolid</td><td>Valladolid</td></tr>
+    <tr><td>Castellón (Castelló)</td><td>Castellón de la Plana</td><td>Madrid</td><td>Madrid</td><td>Zamora</td><td>Zamora</td></tr>
+    <tr><td>Ciudad Real</td><td>Ciudad Real</td><td>Málaga</td><td>Málaga</td><td>Zaragoza</td><td>Zaragoza</td></tr>
+    <tr><td>Córdoba</td><td>Córdoba</td><td>Murcia</td><td>Murcia</td><td></td><td></td></tr>
+  </tbody>
+  <caption>Tabla 7. Provincias y capitales de la España peninsular.</caption>
+</table></div>
+
+<h3>Marco teórico</h3>
+<p>El problema del agente viajero (TSP, por sus siglas en inglés) es uno de los desafíos más estudiados en la optimización combinatoria y las ciencias de la computación. Formalmente, plantea el escenario de un vendedor que debe visitar un conjunto de ciudades determinadas exactamente una vez y, al concluir, retornar a la ciudad de origen. El objetivo matemático principal es identificar la ruta óptima que minimice la distancia total recorrida, el tiempo empleado o los costos financieros del trayecto. A pesar de su enunciado sencillo, el problema posee una enorme complejidad computacional clasificada como NP-hard, lo que significa que el número de soluciones posibles crece de forma factorial a medida que se añaden nuevos destinos, volviendo inviable la evaluación manual o por fuerza bruta para redes de gran escala (Applegate et al., 2006).</p>
+<p>En este caso un vendedor debe visitar las 47 capitales de provincia peninsulares exactamente una vez y regresar a la ciudad de partida. Se busca el orden de visita que haga el recorrido total más corto y luego se tiene en cuenta el costo de desplazamiento entre ciudades.</p>
+<p>En este contexto, las colonias de hormigas y los algoritmos genéticos representan dos estrategias diferentes para explorar un espacio de soluciones de gran tamaño. Las primeras utilizan mecanismos de aprendizaje colectivo mediante feromonas, mientras que los segundos emplean una población de soluciones y operadores inspirados en la evolución. La comparación de ambos enfoques permitirá estudiar no solo qué recorrido obtiene el menor costo, sino también cómo evoluciona la búsqueda y qué tan sensibles son los resultados ante cambios en el valor económico del tiempo del vendedor.</p>
+<p>Finalmente, el carácter cerrado del recorrido, la incorporación simultánea de tiempo, peajes y combustible, y el análisis del parámetro asociado al valor de una hora de trabajo convierten esta instancia en un problema más cercano a una situación real de planificación de rutas que el TSP puramente geométrico basado únicamente en distancias entre puntos.</p>
+
+<h3 id="p2-matematica">Fundamentación matemática</h3>
+<p>Un recorrido es una permutación \(\pi\) de las \(n=47\) capitales, y su longitud incluye el regreso al inicio (Applegate et al., 2006):</p>
+<div class="math-block">\[ L(\pi) = \sum_{k=1}^{n-1} d_{\pi_k\pi_{k+1}} + d_{\pi_n\pi_1}. \]</div>
+<p>Las distancias \(d_{ij}\) son kilómetros por carretera calculados con ORS (Luxen y Vetter, 2011), ejecutado localmente sobre el extracto de OpenStreetMap para España (OpenStreetMap contributors, 2026; Geofabrik GmbH, 2026), de modo que ninguna ruta atraviesa países vecinos. La matriz resultante es <em>asimétrica</em> (\(d_{ij}\neq d_{ji}\) en general, por sentidos únicos y accesos distintos), así que se trata de un TSP asimétrico.</p>
+
+<h4>Colonia de hormigas (ACO)</h4>
+<p>Cada hormiga construye un recorrido y, estando en la ciudad \(i\), elige la siguiente ciudad \(j\) no visitada con probabilidad</p>
+<div class="math-block">\[ p_{ij} = \frac{\tau_{ij}^{\alpha}\,\eta_{ij}^{\beta}}{\sum_{l\in\mathcal{N}_i}\tau_{il}^{\alpha}\,\eta_{il}^{\beta}}, \qquad \eta_{ij}=\frac{1}{d_{ij}}, \]</div>
+<p>donde \(\tau_{ij}\) es la feromona del arco \(i\to j\) (la experiencia acumulada de la colonia) y \(\eta_{ij}\) favorece las ciudades cercanas. Tras cada iteración, la feromona se evapora y se refuerza en los arcos de los recorridos cortos, con un peso extra \(e\) para el mejor recorrido global \(T^{bs}\):</p>
+<div class="math-block">\[ \tau_{ij} \leftarrow (1-\rho)\,\tau_{ij} + \sum_k \Delta\tau_{ij}^k + e\,\Delta\tau_{ij}^{bs}, \qquad \Delta\tau_{ij}^k = \begin{cases} 1/L_k & \text{si el arco } i\to j \in T^k,\\ 0 & \text{en otro caso.}\end{cases} \]</div>
+<p>Como la matriz es asimétrica, solo se refuerza el sentido recorrido (\(\tau_{ij}\) y no \(\tau_{ji}\)). La feromona inicial es \(\tau_0=m/L^{nn}\) (Dorigo y Stützle, 2004).</p>
+
+<h4>Algoritmo genético (GA)</h4>
+<p>Cada individuo es un recorrido, y su aptitud es \(L(\pi)\), que se busca minimizar (Holland, 1975; Goldberg, 1989). En cada generación:</p>
+<ul>
+  <li><strong>Elitismo:</strong> los 2 mejores recorridos pasan intactos.</li>
+  <li><strong>Selección por torneo:</strong> de \(k=5\) recorridos tomados al azar, gana el más corto.</li>
+  <li><strong>Cruce OX</strong> (Davis, 1985), con \(p_c=0{,}9\): el hijo copia un tramo de un padre y completa el resto en el orden del otro, sin repetir ciudades.</li>
+  <li><strong>Mutación por inversión</strong>, con \(p_m=0{,}3\): se invierte un tramo aleatorio del recorrido.</li>
+  <li><strong>Diversidad:</strong> se descartan los hijos duplicados para evitar la convergencia prematura.</li>
+</ul>
+<p>Parámetros: población de 150 y 1 500 generaciones. Como complemento, se evaluó también una variante memética (Moscato, 1989), que aplica búsqueda local a un 5 % de los hijos y usa 200 generaciones.</p>
+
+<h4>Búsqueda local (para la comparación)</h4>
+<p>Ambos algoritmos se combinan con dos movimientos de búsqueda local, que se alternan hasta que ninguno mejora el recorrido. Se aplican a la mejor hormiga de cada iteración y al 5 % de los hijos del GA, lo que convierte a este último en un algoritmo memético (Moscato, 1989).</p>
+<p><strong>2-opt</strong> (Croes, 1958). Sustituye dos arcos \(a\to b\) y \(c\to d\) por \(a\to c\) y \(b\to d\), lo que obliga a recorrer al revés el tramo intermedio \(b,\dots,c\). Con distancias asimétricas, ese tramo cambia de longitud, así que la variación es</p>
+<div class="math-block">\[ \Delta = d_{ac}+d_{bd}-d_{ab}-d_{cd} + \sum_{k=i+1}^{j-1}\left(d_{\pi_{k+1}\pi_k}-d_{\pi_k\pi_{k+1}}\right), \]</div>
+<p>donde \(\pi_{i+1}=b\) y \(\pi_j=c\). El movimiento se acepta si \(\Delta&lt;0\).</p>
+<p><strong>Or-opt</strong> (Or, 1976). Saca un tramo de \(\ell\in\{1,2,3\}\) ciudades consecutivas \(s_1\to\cdots\to s_\ell\), situado entre \(p\) y \(q\), y lo reinserta <em>sin invertirlo</em> entre otras dos ciudades consecutivas \(x\) e \(y\):</p>
+<div class="math-block">\[ \Delta = \left(d_{pq}+d_{xs_1}+d_{s_\ell y}\right) - \left(d_{ps_1}+d_{s_\ell q}+d_{xy}\right). \]</div>
+<p>Al conservar el sentido del tramo, es el movimiento natural cuando \(d_{ij}\neq d_{ji}\).</p>
+
+<h4>Verificación</h4>
+<p>El óptimo exacto \(L^*\) se obtuvo con programación lineal entera en la formulación de Dantzig, Fulkerson y Johnson (1954). Con él se mide la calidad de cada algoritmo:</p>
+<div class="math-block">\[ \text{Dif.} = 100\cdot\frac{L-L^*}{L^*}\ \%. \]</div>
+
+<h3 id="p2-datos">Datos geográficos y matrices de tiempo y distancia</h3>
+<h4>Origen de las coordenadas</h4>
+<p>El problema se define sobre las 47 capitales de provincia de la España peninsular. La latitud y la longitud de cada capital se tomaron del <em>Nomenclátor Geográfico de Municipios y Entidades de Población</em> (NGMEP) del Centro Nacional de Información Geográfica (CNIG, s.f.). Es una base de datos oficial del Instituto Geográfico Nacional. Según su página de descarga, las coordenadas de la península están en ETRS89, compatible con WGS84, que es el sistema que usa OpenStreetMap y, por tanto, OpenRouteService. Por eso no fue necesaria ninguna transformación entre sistemas de referencia. La fecha de descarga fue el 4 de octubre del 2026.</p>
+<p>Se hicieron dos ajustes antes de usar los datos:</p>
+<ul>
+  <li>Se comprobó que hubiera exactamente 47 ciudades, sin nombres repetidos.</li>
+  <li>Se guardó la tabla como (latitud, longitud), pero los servicios de enrutamiento esperan el orden (longitud, latitud). Este cambio de orden se hace una sola vez, al construir la solicitud.</li>
+</ul>
+
+<h4>Por qué se necesitan tiempos y distancias por carretera</h4>
+<p>La distancia en línea recta no representa lo que recorre un vehículo: ignora relieve, trazado y velocidad de cada vía. Como el costo del viaje depende del tiempo y del combustible, hacen falta, para cada par de capitales, el tiempo y la distancia de una ruta real. Con 47 ciudades hay \(47\times46=2162\) pares ordenados. Se calcularon por separado, porque la ida y la vuelta pueden diferir.</p>
+
+<h4>Primer intento: API pública de OpenRouteService</h4>
+<p>El primer intento usó el servicio <em>Matrix</em> (v2, perfil <code>driving-car</code>) de la API pública de OpenRouteService (ORS) (GIScience / HeiGIT, s.f.-b). La solicitud enviaba las 47 coordenadas y pedía distancia (km) y duración (s) para todos los pares. Un script en Python hacía la petición, validaba la respuesta (ausencia de valores vacíos, distancia de ajuste a la red, asimetría) y guardaba las matrices \(D\) (km) y \(T\) (h) junto con un archivo de metadatos.</p>
+<p><strong>Cómo calcula ORS cada celda.</strong> ORS construye un grafo de carreteras \(G=(V,E)\) a partir de OpenStreetMap (GIScience / HeiGIT, s.f.-a; OpenStreetMap Foundation, s.f.). Cada coordenada se ajusta (<em>snapping</em>) al punto de la red viaria más cercano. A cada tramo \(e\) se le asigna una velocidad \(v_e\) a partir de las etiquetas de OSM (límite de velocidad, tipo de vía, entorno urbano o rural, superficie) (GIScience / HeiGIT, s.f.-d, s.f.-e), y su tiempo es</p>
+<div class="math-block">\[ t_e = \frac{\ell_e}{v_e}. \]</div>
+<p>Entre dos puntos se busca la ruta más rápida,</p>
+<div class="math-block">\[ P^* = \arg\min_P T(P), \qquad T(P)=\sum_{e\in P} t_e, \]</div>
+<p>con un algoritmo de camino mínimo (tipo Dijkstra). La celda \(T_{ij}\) es \(T(P^*)\) y la celda \(D_{ij}\) es la longitud de esa misma ruta. La distancia no se minimiza por separado: es la longitud de la ruta más rápida. No se considera tráfico en tiempo real.</p>
+
+<h4>Error detectado: rutas por carreteras de Portugal</h4>
+<p>Al revisar las rutas obtenidas se vio que algunos pares no se resolvían por carreteras españolas. En la respuesta de ORS aparecían autopistas portuguesas, en concreto la A 3/IP 1 (<em>Autoestrada de Entre-Douro-e-Minho</em>) y la A 2 (<em>Autoestrada do Sul</em>).</p>
+<p><strong>Por qué ocurre.</strong> ORS solo busca el camino más rápido sobre todo el mapa disponible. Si una ruta por Portugal es más rápida que la mejor por España, la elige. Es un resultado correcto para un viajero libre, pero no para este problema, que debe comparar rutas dentro del territorio peninsular español. Además, la API pública tiene una cuota diaria. En una fase posterior de extracción se recibió el error 403 <em>Quota exceeded</em>, lo que mostraba que depender del servicio público limitaba la repetición del cálculo.</p>
+
+<h4>Solución: servidor local de OpenRouteService</h4>
+<p>Para controlar qué red viaria se usa, se montó una instancia propia de ORS con Docker (GIScience / HeiGIT, s.f.-c):</p>
+<ol>
+  <li>Se descargó de Geofabrik el extracto de OpenStreetMap de España (<code>spain-latest.osm.pbf</code>, unos 1,4 GB) (Geofabrik GmbH, 2026), el 12 de octubre.</li>
+  <li>Se arrancó ORS en un contenedor con ese archivo como fuente de datos y el perfil <code>driving-car</code> activo. Al arrancar, el servicio construye el grafo y lo guarda para reutilizarlo (GIScience / HeiGIT, s.f.-c).</li>
+  <li>Un script en Python envía una solicitud con el mismo formato que la API pública: las coordenadas en orden (longitud, latitud), <code>metrics</code> = distancia y duración, <code>units</code> = km y <code>resolve_locations</code>. No requiere clave de API.</li>
+  <li>La respuesta se convierte en tablas \(47\times47\) de distancias (km) y de tiempos (s ÷ 3600, es decir, horas), y se guarda junto con las coordenadas y la respuesta cruda.</li>
+</ol>
+<p>El motor, el perfil, el modo de calcular tiempos y distancias y el formato de salida son los mismos que en el primer intento. Solo cambia el mapa del que parte el grafo, ahora limitado a España. Para mantener coherencia, todas las matrices usadas en el trabajo se regeneraron con el servidor local; no se mezclan datos de la API pública y del servidor propio.</p>
+
+<h4>Por qué fue importante el cambio</h4>
+<ul>
+  <li><strong>Validez del problema.</strong> Con el extracto de España, las rutas ya no pueden usar vías portuguesas; el problema queda restringido a la red viaria española.</li>
+  <li><strong>Distancias y tiempos representativos.</strong> Los 20 pares afectados tenían valores que no corresponden a un trayecto por España, y esos pares se concentran en el oeste y el suroeste, que son los más relevantes para cerrar el ciclo.</li>
+</ul>
+<h4>Consecuencias de no haber hecho el cambio</h4>
+<ul>
+  <li>Las matrices habrían contenido distancias y tiempos de rutas que salen del país, y el costo de esos trayectos se habría calculado sobre carreteras ajenas al problema.</li>
+  <li>Los algoritmos (colonia de hormigas y algoritmo genético) optimizan con esos números tal como están. Un atajo artificial por Portugal puede acortar un tramo del recorrido y llevar a un ciclo que parece mejor, pero solo lo es porque la matriz está sesgada.</li>
+  <li>El valor del costo total, y el análisis de sensibilidad sobre el valor de la hora del conductor, estarían contaminados por esos pares, y la solución no se podría defender como un recorrido por España.</li>
+  <li>Habría quedado una inconsistencia de método: parte de las celdas calculadas con la red española y parte con la red de la península ibérica.</li>
+</ul>
+<h4>Supuestos y limitaciones</h4>
+<ul>
+  <li>Los tiempos salen del modelo de velocidades de ORS, sin tráfico en tiempo real, y pueden diferir de los de la API pública por la configuración y la versión del mapa.</li>
+  <li>Los datos de OpenStreetMap son colaborativos y pueden tener errores o etiquetas incompletas (OpenStreetMap Foundation, s.f.).</li>
+  <li>Las coordenadas corresponden a un punto por capital, y el recorrido real parte de un punto de la red cercano a él.</li>
+</ul>
+
+<h3 id="p2-sol1">Solución del punto 1: la ruta más corta</h3>
+<div class="callout"><p><em>Encuentren el orden óptimo del recorrido usando colonias de hormigas y algoritmos genéticos, todo a partir de la matriz de distancias.</em></p></div>
+<p>Se ejecutaron las versiones clásicas de ambos algoritmos, sin búsqueda local, sobre la matriz asimétrica de distancias por carretera y con la semilla 42. La colonia de hormigas usó 47 hormigas y 300 iteraciones (\(\alpha=1\), \(\beta=5\), \(\rho=0{,}1\), \(e=5\)), y el algoritmo genético, una población de 150 recorridos durante 1 500 generaciones (\(p_c=0{,}9\), \(p_m=0{,}3\), torneo de tamaño \(k=5\), dos individuos de élite). La Tabla 8 resume el resultado.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Método</th><th class="n">Longitud (km)</th><th class="n">Dif. óptimo</th><th class="n">Hallada en</th><th class="n">Tiempo (s)</th></tr></thead>
+  <tbody>
+    <tr class="best"><td>Algoritmo genético (GA)</td><td class="n">6 257,0</td><td class="n">+0,79 %</td><td class="n">generación 705</td><td class="n">6,9</td></tr>
+    <tr><td>Colonia de hormigas (ACO)</td><td class="n">6 442,5</td><td class="n">+3,78 %</td><td class="n">iteración 111</td><td class="n">2,5</td></tr>
+    <tr><td>Vecino más cercano</td><td class="n">7 360,6</td><td class="n">+18,57 %</td><td class="n">—</td><td class="n">—</td></tr>
+    <tr><td>Óptimo exacto (PLE)</td><td class="n">6 207,7</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>
+  </tbody>
+  <caption>Tabla 8. Resumen de resultados (distancias por carretera, semilla 42).</caption>
+</table></div>
+<p><strong>El mejor recorrido lo encontró el algoritmo genético, con 6 257,0 km.</strong> Es un 15,0 % más corto que el de la heurística del vecino más cercano y queda a solo un 0,79 % (49,3 km) del óptimo exacto (6 207,7 km), calculado por programación lineal entera solo como referencia. La colonia de hormigas obtuvo 6 442,5 km, a un 3,78 % del óptimo.</p>
+
+<h4>Mejor recorrido encontrado</h4>
+<p>Partiendo de Madrid (al ser un ciclo cerrado, el punto de partida no altera la longitud), el mejor recorrido, hallado por el algoritmo genético, es el de la Tabla 9 y la Figura 4.</p>
+<figure>
+  <img src="img/p2_rutas_distancia.png" alt="Mejores recorridos de ACO y GA sobre el mapa y curvas de convergencia frente al óptimo exacto" loading="lazy">
+  <figcaption><b>Figura 4.</b> Mejores recorridos hallados por ACO (izquierda) y GA (centro); las flechas indican el sentido. A la derecha, convergencia de la mejor longitud encontrada frente al óptimo exacto (línea discontinua).</figcaption>
+</figure>
+<div class="table-wrap"><table>
+  <thead><tr><th class="n">#</th><th>Tramo</th><th class="n">km</th><th class="n">Acum.</th><th class="n">#</th><th>Tramo</th><th class="n">km</th><th class="n">Acum.</th></tr></thead>
+  <tbody>
+    <tr><td class="n">1</td><td>Madrid → Guadalajara</td><td class="n">57,6</td><td class="n">57,6</td><td class="n">25</td><td>Lleida → Huesca</td><td class="n">117,2</td><td class="n">3 661,7</td></tr>
+    <tr><td class="n">2</td><td>Guadalajara → Toledo</td><td class="n">130,5</td><td class="n">188,1</td><td class="n">26</td><td>Huesca → Zaragoza</td><td class="n">73,5</td><td class="n">3 735,3</td></tr>
+    <tr><td class="n">3</td><td>Toledo → Ciudad Real</td><td class="n">123,0</td><td class="n">311,1</td><td class="n">27</td><td>Zaragoza → Soria</td><td class="n">167,8</td><td class="n">3 903,1</td></tr>
+    <tr><td class="n">4</td><td>Ciudad Real → Cáceres</td><td class="n">299,9</td><td class="n">611,1</td><td class="n">28</td><td>Soria → Logroño</td><td class="n">101,3</td><td class="n">4 004,5</td></tr>
+    <tr><td class="n">5</td><td>Cáceres → Badajoz</td><td class="n">91,2</td><td class="n">702,3</td><td class="n">29</td><td>Logroño → Pamplona</td><td class="n">85,8</td><td class="n">4 090,2</td></tr>
+    <tr><td class="n">6</td><td>Badajoz → Huelva</td><td class="n">234,6</td><td class="n">936,8</td><td class="n">30</td><td>Pamplona → San Sebastián</td><td class="n">83,4</td><td class="n">4 173,6</td></tr>
+    <tr><td class="n">7</td><td>Huelva → Sevilla</td><td class="n">95,3</td><td class="n">1 032,2</td><td class="n">31</td><td>San Sebastián → Vitoria-Gasteiz</td><td class="n">101,5</td><td class="n">4 275,1</td></tr>
+    <tr><td class="n">8</td><td>Sevilla → Cádiz</td><td class="n">121,5</td><td class="n">1 153,7</td><td class="n">32</td><td>Vitoria-Gasteiz → Bilbao</td><td class="n">65,4</td><td class="n">4 340,6</td></tr>
+    <tr><td class="n">9</td><td>Cádiz → Málaga</td><td class="n">234,0</td><td class="n">1 387,7</td><td class="n">33</td><td>Bilbao → Santander</td><td class="n">105,2</td><td class="n">4 445,8</td></tr>
+    <tr><td class="n">10</td><td>Málaga → Córdoba</td><td class="n">159,7</td><td class="n">1 547,4</td><td class="n">34</td><td>Santander → Burgos</td><td class="n">180,6</td><td class="n">4 626,4</td></tr>
+    <tr><td class="n">11</td><td>Córdoba → Jaén</td><td class="n">119,7</td><td class="n">1 667,1</td><td class="n">35</td><td>Burgos → Valladolid</td><td class="n">128,0</td><td class="n">4 754,4</td></tr>
+    <tr><td class="n">12</td><td>Jaén → Granada</td><td class="n">94,3</td><td class="n">1 761,4</td><td class="n">36</td><td>Valladolid → Palencia</td><td class="n">49,4</td><td class="n">4 803,8</td></tr>
+    <tr><td class="n">13</td><td>Granada → Almería</td><td class="n">161,4</td><td class="n">1 922,9</td><td class="n">37</td><td>Palencia → León</td><td class="n">133,4</td><td class="n">4 937,2</td></tr>
+    <tr><td class="n">14</td><td>Almería → Murcia</td><td class="n">222,7</td><td class="n">2 145,5</td><td class="n">38</td><td>León → Oviedo</td><td class="n">124,8</td><td class="n">5 062,1</td></tr>
+    <tr><td class="n">15</td><td>Murcia → Alicante</td><td class="n">81,8</td><td class="n">2 227,3</td><td class="n">39</td><td>Oviedo → Lugo</td><td class="n">254,1</td><td class="n">5 316,2</td></tr>
+    <tr><td class="n">16</td><td>Alicante → Albacete</td><td class="n">168,3</td><td class="n">2 395,7</td><td class="n">40</td><td>Lugo → A Coruña</td><td class="n">98,7</td><td class="n">5 414,9</td></tr>
+    <tr><td class="n">17</td><td>Albacete → Cuenca</td><td class="n">164,3</td><td class="n">2 560,0</td><td class="n">41</td><td>A Coruña → Pontevedra</td><td class="n">133,5</td><td class="n">5 548,4</td></tr>
+    <tr><td class="n">18</td><td>Cuenca → Teruel</td><td class="n">149,1</td><td class="n">2 709,1</td><td class="n">42</td><td>Pontevedra → Ourense</td><td class="n">98,5</td><td class="n">5 646,9</td></tr>
+    <tr><td class="n">19</td><td>Teruel → Valencia</td><td class="n">141,5</td><td class="n">2 850,6</td><td class="n">43</td><td>Ourense → Zamora</td><td class="n">259,0</td><td class="n">5 905,9</td></tr>
+    <tr><td class="n">20</td><td>Valencia → Castellón</td><td class="n">75,5</td><td class="n">2 926,1</td><td class="n">44</td><td>Zamora → Salamanca</td><td class="n">67,2</td><td class="n">5 973,2</td></tr>
+    <tr><td class="n">21</td><td>Castellón → Tarragona</td><td class="n">190,7</td><td class="n">3 116,8</td><td class="n">45</td><td>Salamanca → Ávila</td><td class="n">106,8</td><td class="n">6 079,9</td></tr>
+    <tr><td class="n">22</td><td>Tarragona → Barcelona</td><td class="n">96,2</td><td class="n">3 213,0</td><td class="n">46</td><td>Ávila → Segovia</td><td class="n">84,0</td><td class="n">6 163,9</td></tr>
+    <tr><td class="n">23</td><td>Barcelona → Girona</td><td class="n">103,9</td><td class="n">3 316,9</td><td class="n">47</td><td>Segovia → Madrid</td><td class="n">93,2</td><td class="n">6 257,0</td></tr>
+    <tr><td class="n">24</td><td>Girona → Lleida</td><td class="n">227,6</td><td class="n">3 544,5</td><td></td><td></td><td></td><td></td></tr>
+  </tbody>
+  <caption>Tabla 9. Mejor recorrido encontrado (GA), tramo a tramo (km por carretera).</caption>
+</table></div>
+<p><strong>Comparación entre algoritmos.</strong> Las curvas de convergencia (Figura 4, derecha) muestran dos comportamientos distintos. La colonia de hormigas mejora muy rápido al principio, pero se estabiliza en la iteración 111: la feromona se concentra en un recorrido y la colonia deja de explorar alternativas. El algoritmo genético parte de recorridos aleatorios de unos 25 000 km y mejora de forma más lenta, pero llega más lejos: alcanza su mejor recorrido en la generación 705. Es también más fiable: con diez semillas distintas, el GA obtuvo en promedio 6 292,9 km, entre 6 228,8 y 6 372,5 km.</p>
+<h4>Comparación con búsqueda local</h4>
+<p>Como complemento, se repitieron ambos algoritmos añadiendo una búsqueda local (2-opt y Or-opt) a las mejores soluciones: a la mejor hormiga de cada iteración en ACO y a un 5 % de los hijos en el GA, que pasa así a ser un algoritmo memético. Con esta combinación, ambos alcanzan el óptimo exacto de 6 207,7 km (ACO en la iteración 71 y GA en la generación 4). Esto muestra que las metaheurísticas encuentran la estructura general de un buen recorrido, mientras que la búsqueda local corrige los defectos locales que les impiden llegar al óptimo.</p>
+
+<h3 id="p2-costos">Parámetros económicos y función de costo</h3>
+<div class="callout"><p><strong>Nota:</strong> durante la investigación se encontró un estudio realizado en 2016 sobre las capitales de provincia de la España peninsular, en el cual se presenta la matriz de distancias entre las diferentes capitales. Aprovechando esta información, se realiza una comparación con los resultados obtenidos para el año 2026, con el propósito de analizar las posibles diferencias entre ambos escenarios. El estudio de referencia para el año 2016 se tomó de Roldán (2016).</p></div>
+<p>El costo de cada trayecto entre dos capitales se expresa en euros y combina tres componentes: el tiempo de quien conduce, el combustible del vehículo y los peajes de las autopistas utilizadas. Para convertir las matrices de tiempo y distancia en una matriz de costo es necesario fijar un vehículo de referencia, un precio del combustible, un valor monetario de la hora de trabajo y una matriz de peajes. Esta sección describe cada decisión, la fuente consultada, la fecha de consulta y la razón por la que se adoptó.</p>
+
+<h4>Vehículo de referencia</h4>
+<p>Se adoptó como vehículo base el <strong>Toyota Corolla Hatchback Hybrid 140H</strong> (Toyota España, s.f.). La fecha de consulta de la página fue el 5 de octubre. La elección responde a tres razones:</p>
+<ol>
+  <li><strong>Es un automóvil convencional.</strong> Se trata de un turismo de uso habitual, de modo que el experimento representa a un vendedor que se desplaza en un coche corriente y no en un vehículo especial.</li>
+  <li><strong>Dispone de especificaciones oficiales de consumo.</strong> El fabricante publica el consumo combinado bajo el ciclo de homologación WLTP, lo que permite basar el parámetro en un dato verificable y no en una estimación propia.</li>
+  <li><strong>Usa gasolina.</strong> Funciona con gasolina, de la que existe un precio público y actualizado, y no depende de una infraestructura de recarga cuya disponibilidad variaría entre las capitales del recorrido.</li>
+</ol>
+<div class="table-wrap"><table>
+  <thead><tr><th>Característica</th><th>Valor</th></tr></thead>
+  <tbody>
+    <tr><td>Marca y modelo</td><td>Toyota Corolla Hatchback Hybrid 140H</td></tr>
+    <tr><td>Sistema de propulsión</td><td>Híbrido no enchufable</td></tr>
+    <tr><td>Motor</td><td>1,8 L, ciclo Atkinson, con motor eléctrico</td></tr>
+    <tr><td>Potencia indicada</td><td>140 CV</td></tr>
+    <tr><td>Combustible</td><td>Gasolina 95 E5</td></tr>
+    <tr><td>Consumo combinado WLTP (rango publicado)</td><td>4,4–4,7 L/100 km</td></tr>
+    <tr><td>Consumo utilizado en el modelo</td><td>4,7 L/100 km</td></tr>
+  </tbody>
+  <caption>Tabla 10. Características del vehículo de referencia. Datos del fabricante (Toyota España, s.f.).</caption>
+</table></div>
+<p><strong>Por qué se usa 4,7 L/100 km.</strong> El fabricante publica un rango de 4,4 a 4,7 L/100 km. Se tomó el extremo superior, es decir, el consumo más alto del rango oficial. Con ello el costo de combustible no se subestima: los valores WLTP se miden en condiciones de laboratorio y el propio fabricante advierte de que pueden no reflejar el resultado de la conducción real (Toyota España, s.f.). Elegir el extremo alto es, por tanto, una decisión prudente y no un promedio.</p>
+
+<h4>Precio del combustible</h4>
+<p>El precio de la gasolina de 95 octanos se tomó de un agregador que publica los datos oficiales del Ministerio para la Transición Ecológica y el Reto Demográfico (MITECO) (Gasolinera Hoy, 2026). Se registró una <em>captura</em> (<em>snapshot</em>) el <strong>5 de octubre de 2026</strong>, con un valor de <strong>1,799 €/L</strong>, y ese valor se fijó como precio \(p\) del modelo.</p>
+<p>Se fijó un único precio y no uno distinto por provincia, porque el modelo busca una ruta que sea comparable entre algoritmos y entre experimentos. Un precio por provincia añadiría una fuente de variación que no es objeto del estudio y haría que el costo de un mismo tramo dependiera del sentido en que se recorre. La fecha de la captura se documenta porque el precio de los carburantes cambia a diario: otro día daría otro valor.</p>
+
+<h4>Conversión de la distancia en costo de combustible</h4>
+<p>Sea \(D_{ij}\) la distancia por carretera, en km, del trayecto de la ciudad \(i\) a la ciudad \(j\), obtenida de la matriz de distancias. Con un consumo \(q=4{,}7\) L/100 km y un precio \(p=1{,}799\) €/L se calculan dos magnitudes:</p>
+<div class="math-block">\[ L_{ij} = \frac{q\,D_{ij}}{100}, \qquad F_{ij} = p\,L_{ij}. \]</div>
+<p>La primera ecuación calcula los <strong>litros</strong> que gasta el vehículo en el trayecto. El consumo está expresado por cada 100 km, de modo que se multiplica por la distancia y se divide entre 100: un trayecto de 100 km consume 4,7 L, uno de 200 km consume 9,4 L, y así sucesivamente. La segunda convierte esos litros en <strong>euros</strong> multiplicándolos por el precio de cada litro. Al sustituir la primera en la segunda se obtiene un único coeficiente por kilómetro:</p>
+<div class="math-block">\[ F_{ij} = p\cdot\frac{q\,D_{ij}}{100} = 1{,}799\cdot\frac{4{,}7\,D_{ij}}{100} = 0{,}084553\,D_{ij}\quad[\text{€}]. \]</div>
+<p>El coeficiente \(k=pq/100=0{,}084553\) €/km indica que cada kilómetro recorrido cuesta unos 8,5 céntimos de combustible. Se hace esta simplificación porque el costo de combustible es proporcional a la distancia: no depende de la ciudad concreta, sino solo de cuántos kilómetros se recorren, de modo que basta multiplicar la matriz de distancias por \(k\) para obtener la matriz de costo de combustible.</p>
+
+<h4>Peajes</h4>
+<p>El tercer componente del costo es el peaje \(P_{ij}\), expresado en euros, asociado al desplazamiento de la ciudad \(i\) a la ciudad \(j\). Se incorpora a la función de costo para que el modelo valore, además del tiempo y del combustible, el dinero que se paga por el uso de autopistas.</p>
+<p><strong>Dificultades en la obtención de los datos.</strong> A diferencia de las distancias y los tiempos de conducción, obtenidos con el servidor local de OpenRouteService, no se contaba con una matriz completa y verificable de tarifas de peaje para los 47 destinos. Además, el importe de un peaje depende de la autopista utilizada, del tramo recorrido, de la categoría del vehículo y, en determinadas vías, de las condiciones tarifarias aplicables (Secretaría General de Transporte Terrestre, 2025). Por ello no era posible asignar una tarifa única y exacta a cada uno de los \(47\times46=2162\) pares de capitales sin información detallada sobre las rutas y sus tramos de peaje.</p>
+<p><strong>Solución adoptada: una matriz sintética.</strong> Para no dejar desplazamientos sin valorar y mantener un procedimiento de cálculo uniforme, se construyó una matriz de peajes <strong>sintética</strong>, que aproxima el peaje de cada desplazamiento a partir de la distancia por carretera entre las dos capitales. Esta matriz no reproduce necesariamente el importe real que se pagaría en una ruta concreta y, por esa razón, el archivo que la contiene se identifica expresamente como sintético.</p>
+<p><strong>Supuestos.</strong></p>
+<ol>
+  <li><strong>Proporción de trayecto con peaje.</strong> Se supuso que el 20 % de la distancia de cada trayecto corresponde a vías de peaje. Este valor es un supuesto de modelización y no una estadística oficial; no se apoya en mediciones de los recorridos individuales.</li>
+  <li><strong>Tarifa de referencia de 2025.</strong> Se tomó la tarifa oficial para vehículos ligeros sin dispositivo de telepeaje (sin TAG) en las autopistas del Estado, publicada en el BOE (Secretaría General de Transporte Terrestre, 2024): 0,0927 €/km, sin IVA. Se eligió la tarifa sin TAG porque el vehículo de referencia se considera sin dicho dispositivo; además, es la más alta para vehículos ligeros (con TAG es de 0,0827 €/km), por lo que no subestima el peaje.</li>
+  <li><strong>Actualización a 2026.</strong> La misma resolución fija un incremento máximo anual del 2 % para 2026 (Secretaría General de Transporte Terrestre, 2024), de modo que la tarifa de referencia de 2026 es
+    \[ t_{2026} = 0{,}0927\times1{,}02 = 0{,}094554\ \text{€/km}. \]</li>
+</ol>
+<p><strong>Cálculo.</strong> Como solo una parte del trayecto se supone sujeta a peaje, la tarifa se reparte sobre la distancia total para obtener una tarifa efectiva media por kilómetro recorrido:</p>
+<div class="math-block">\[ r_{\text{efectiva}} = 0{,}20\times t_{2026} = 0{,}20\times0{,}094554 = 0{,}0189108\ \text{€/km}. \]</div>
+<p>Esta ecuación indica que, en promedio, cada kilómetro del trayecto aporta 0,0189 € de peaje, aunque la mayor parte de los kilómetros no tenga peaje. El peaje sintético entre las ciudades \(i\) y \(j\) es entonces</p>
+<div class="math-block">\[ P_{ij} = D_{ij}\times r_{\text{efectiva}} = 0{,}0189108\,D_{ij}, \qquad P_{ii}=0, \]</div>
+<p>donde \(D_{ij}\) es la distancia por carretera, en kilómetros, obtenida del servidor local de OpenRouteService.</p>
+<p><strong>Interpretación y limitaciones.</strong></p>
+<ul>
+  <li>La proporción del 20 % y la tarifa de referencia son supuestos de modelización, no mediciones de cada recorrido. Los valores obtenidos son, por tanto, estimaciones sintéticas y no tarifas reales verificadas para cada trayecto.</li>
+  <li>La tarifa de referencia corresponde a un grupo de autopistas del Estado y no representa todas las autopistas españolas, cuyas tarifas difieren según el tramo y el vehículo (Secretaría General de Transporte Terrestre, 2024, 2025).</li>
+  <li>Como \(P_{ij}\) es proporcional a la distancia, el peaje equivale a sumar 0,0189 € por kilómetro al costo de combustible, que es de 0,0846 €/km. La función de costo queda \(C_{ij}=V_hT_{ij}+0{,}103464\,D_{ij}\). Esto significa que el modelo no distingue entre una ruta con peaje y otra libre: el peaje encarece de forma proporcional los trayectos largos, pero no recoge el caso en que una autopista de pago ahorra tiempo a cambio de dinero.</li>
+  <li>La ventaja del procedimiento es que es homogéneo, reproducible y deja todos los pares de capitales valorados.</li>
+</ul>
+
+<h4>Valor de la hora</h4>
+<p><strong>Qué se mide y de dónde se tomó.</strong> El tiempo de viaje no es gratuito: durante las horas de conducción el vendedor no atiende clientes ni realiza otras tareas. Para asignarle un valor se usó el <strong>coste laboral por hora efectiva</strong> publicado por el Instituto Nacional de Estadística (INE) en la Encuesta Trimestral de Coste Laboral del segundo trimestre de 2026, que fue de <strong>26,18 €/h</strong> (Instituto Nacional de Estadística, 2026). El INE publicó este dato el 17 de septiembre de 2026.</p>
+<p><strong>Por qué coste laboral y no salario.</strong> Se distingue entre <em>salario</em> y <em>coste laboral</em>. El salario es lo que recibe el trabajador. El coste laboral es lo que cuesta ese trabajador a la empresa, e incluye, además del salario, otros costes como las cotizaciones obligatorias a la Seguridad Social. En la misma publicación el INE desglosa un coste laboral total de 3 388,15 € por trabajador y mes en un coste salarial de 2 512,68 € y otros costes de 875,47 € (la suma coincide con el total) (Instituto Nacional de Estadística, 2026). Como el costo que se modela es el de la empresa que paga las horas de viaje, se usó el coste laboral, que es mayor que el salario. Además, el INE lo expresa por <em>hora efectiva</em>, es decir, por hora realmente trabajada, y no por hora pagada, lo que evita subestimar el valor de una hora productiva.</p>
+<p><strong>Cómo debe interpretarse.</strong> El valor de 26,18 €/h es un promedio nacional del coste laboral por hora y no el de una profesión concreta. Por eso se utiliza como <strong>parámetro de modelación</strong>: un valor base razonable y verificable, y no una constante válida para cualquier vendedor. Un vendedor con mayor o menor remuneración tendría otro valor, y precisamente por ello el estudio incluye un análisis de sensibilidad sobre este parámetro (<a href="#sensibilidad">ver más abajo</a>).</p>
+
+<h4>Función de costo completa</h4>
+<p>El costo de recorrer el trayecto de \(i\) a \(j\) suma los componentes anteriores:</p>
+<div class="math-block">\[ C_{ij} = V_h\,T_{ij} + P_{ij} + k\,D_{ij}, \qquad V_h = 26{,}18, \quad k = 0{,}084553, \]</div>
+<p>donde \(T_{ij}\) es el tiempo de viaje en horas, \(D_{ij}\) la distancia en km, y \(P_{ij}\) y \(C_{ij}\) están en euros. Los tres sumandos representan, en orden, el costo del tiempo del conductor, el de los peajes y el del combustible.</p>
+
+<h4 id="sensibilidad">Sensibilidad al valor de la hora</h4>
+<p>El objetivo del análisis es identificar a partir de qué valor económico de la hora del vendedor cambia la ruta óptima, es decir, cuánto debe valer una hora de trabajo para que el algoritmo seleccione un recorrido diferente. Sin embargo, en el modelo el tiempo de desplazamiento se calcula a partir de la distancia entre ciudades y de una velocidad media constante de 80 km/h. Este cálculo permite estimar el tiempo total de cada ruta, pero no contempla variaciones de la velocidad según la hora del día. Por tanto, el modelo no permite determinar a qué hora de salida cambia la ruta óptima.</p>
+
+<h4>Limitaciones</h4>
+<ul>
+  <li>El precio de la gasolina corresponde a un día concreto (5 de octubre de 2026) y varía a diario; se fijó un valor único para todo el territorio.</li>
+  <li>El consumo de 4,7 L/100 km es un dato de homologación y no un consumo medido en carretera; el real depende de la velocidad, la carga y el relieve.</li>
+  <li>El valor de 26,18 €/h es una media nacional del coste laboral y no el de un perfil de vendedor concreto.</li>
+  <li>El modelo supone un vehículo y una tarifa de tiempo constantes en todos los trayectos y no incluye otros costes como el desgaste, el seguro o las dietas.</li>
+</ul>
+
+<h3 id="p2-sol2">Solución del punto 2: la ruta más barata</h3>
+<div class="table-wrap"><table>
+  <thead><tr><th>Escenario</th><th>Algoritmo</th><th class="n">Costo (€)</th><th class="n">km</th><th class="n">Horas</th><th class="n">Tiempo (€)</th><th class="n">Combustible (€)</th><th class="n">Peajes (€)</th></tr></thead>
+  <tbody>
+    <tr class="best"><td>2016</td><td>ACO</td><td class="n">2169,93</td><td class="n">6836,0</td><td class="n">85,5</td><td class="n">1689,35</td><td class="n">375,91</td><td class="n">104,67</td></tr>
+    <tr><td>2016</td><td>GA</td><td class="n">2515,84</td><td class="n">7929,0</td><td class="n">99,1</td><td class="n">1959,45</td><td class="n">436,02</td><td class="n">120,37</td></tr>
+    <tr class="best"><td>2026</td><td>ACO</td><td class="n">2905,02</td><td class="n">6742,7</td><td class="n">84,3</td><td class="n">2206,54</td><td class="n">570,11</td><td class="n">128,37</td></tr>
+    <tr><td>2026</td><td>GA</td><td class="n">3574,53</td><td class="n">8295,3</td><td class="n">103,7</td><td class="n">2714,63</td><td class="n">701,39</td><td class="n">158,50</td></tr>
+  </tbody>
+  <caption>Tabla 11. Mejor recorrido encontrado por cada algoritmo y escenario (semilla 20261008).</caption>
+</table></div>
+<p>En ambos escenarios, la colonia de hormigas (ACO) obtuvo el recorrido de menor costo: 2169,93 € en 2016 y 2905,02 € en 2026. El GA quedó un 15,9 % y un 23,0 % por encima, respectivamente (345,92 € y 669,51 € más). El recorrido del ACO es además más corto (1093 y 1553 km menos) y más rápido (13,7 y 19,4 horas menos).</p>
+<p>La diferencia se explica por cómo construye cada algoritmo sus soluciones. El ACO arma cada recorrido ciudad a ciudad, prefiriendo los tramos de menor costo (\(\eta_{ij}=1/c_{ij}\)), así que incluso sus primeras soluciones son razonables. El GA parte de permutaciones aleatorias y solo las mejora recombinándolas. Con una población de 60 individuos y 150 generaciones no llega a eliminar los tramos largos. Esto se ve en sus recorridos: Alicante → Girona (615 km) y Córdoba → Salamanca (529 km) en 2016, o Tarragona → Guadalajara (486 km) en 2026, son saltos que cruzan la península y que una ruta eficiente evitaría.</p>
+<p>El costo del mejor recorrido aumenta un 33,9 % entre 2016 y 2026 (de 2169,93 € a 2905,02 €), aunque la distancia recorrida es similar (6836 frente a 6743 km). El aumento se debe a los precios. El componente de tiempo sube un 30,6 %, por el valor de la hora (de 19,77 a 26,18 €/h). El combustible sube un 51,7 %, por el precio (de 1,17 a 1,799 €/L). Los peajes suben un 22,6 %.</p>
+<figure>
+  <div class="pair">
+    <div><img src="img/p2_ruta_2016.png" alt="Mejor recorrido de 2016 obtenido con ACO" loading="lazy">(a) 2016: 2169,93 € (6836 km, 85,5 h)</div>
+    <div><img src="img/p2_ruta_2026.png" alt="Mejor recorrido de 2026 obtenido con ACO" loading="lazy">(b) 2026: 2905,02 € (6742,7 km, 84,3 h)</div>
+  </div>
+  <figcaption><b>Figura 5.</b> Mejor recorrido encontrado en cada escenario, obtenido en ambos casos con ACO (semilla 20261008).</figcaption>
+</figure>
+<p>La Figura 5 muestra las mejores rutas de cada escenario, ambas obtenidas con ACO. Son las mejores porque, en los dos años, tienen el menor costo total frente al GA: 2169,93 € frente a 2515,84 € en 2016 (Figura 5a) y 2905,02 € frente a 3574,53 € en 2026 (Figura 5b). Además, recorren menos kilómetros y tardan menos horas. Visualmente, ambas rutas forman un circuito que bordea la península mientras que las del GA atraviesan el país con tramos de más de 480 km. Aunque las dos rutas recorren España en sentidos distintos, su distancia es casi igual (6836 y 6742,7 km). El aumento del costo en 2026 se debe, por tanto, a los precios del tiempo y del combustible, no a la ruta.</p>
+<a class="back" href="#parte2">↑ Volver al inicio de la Parte 2</a>
+
+<!-- ======================================================= IA -->
+<h2 id="ia">Uso de IA</h2>
+<h3>Punto 1</h3>
+<p>A continuación se presentan los principales <em>prompts</em> utilizados durante el desarrollo del trabajo. Estos permitieron apoyar la comprensión matemática de las funciones de prueba, la implementación computacional de los algoritmos de optimización, el diseño de la arquitectura del código y la definición del protocolo experimental empleado para comparar los diferentes métodos.</p>
+
+<h4>Prompt 1: Análisis teórico y derivación del gradiente</h4>
+<blockquote class="prompt">
+  <p>“Actúa como un experto en optimización matemática. Necesito comprender y documentar las funciones de Rosenbrock y Rastrigin.</p>
+  <ol>
+    <li>Explica la geometría, el dominio habitual, el mínimo global y la formulación matemática de cada función en 2D, 3D y \(d\) dimensiones.</li>
+    <li>Realiza la derivación paso a paso de cada función en 2D, aplicando explícitamente la regla de la cadena para obtener las derivadas parciales respecto a \(x_1\) y \(x_2\).</li>
+    <li>Muestra el vector gradiente final \(\nabla f(x_1,x_2)\) de cada función y evalúalo numéricamente en su punto óptimo, verificando que sea igual al vector nulo. Considera \((1,1)\) para Rosenbrock y \((0,0)\) para Rastrigin.”</li>
+  </ol>
+</blockquote>
+<h4>Prompt 2: Implementación de las funciones objetivo</h4>
+<blockquote class="prompt">
+  <p>“Escribe en Python una implementación vectorizada de las funciones de Rosenbrock y Rastrigin. La implementación debe cumplir con los siguientes requisitos:</p>
+  <ul>
+    <li>Utilizar la librería <code>numpy</code> de forma vectorizada.</li>
+    <li>Funcionar para cualquier dimensión \(d\ge2\).</li>
+    <li>Validar que la dimensión del vector de entrada sea consistente con el parámetro de dimensión especificado.</li>
+    <li>Mantener una estructura modular que permita utilizar ambas funciones como problemas de prueba dentro del mismo framework de optimización.”</li>
+  </ul>
+</blockquote>
+<h4>Prompt 3: Arquitectura modular de optimización</h4>
+<blockquote class="prompt">
+  <p>“Tengo implementadas las funciones objetivo de Rosenbrock y Rastrigin y no debo modificar sus definiciones. Diseña una arquitectura modular en Python que cumpla con:</p>
+  <ol>
+    <li>Cada algoritmo de optimización (Descenso por Gradiente, PSO, Evolución Diferencial, etc.) debe implementarse como una función independiente.</li>
+    <li>Debe existir una función principal <code>optimize(algorithm, problem, dim, bounds, random_seed, max_evals)</code> que permita seleccionar el algoritmo y la función objetivo.</li>
+    <li>Debe soportar problemas en dos y tres dimensiones.</li>
+    <li>Garantizar la reproducibilidad mediante el control centralizado de semillas aleatorias.</li>
+    <li>Registrar automáticamente el número de evaluaciones de la función objetivo (\(n_f\)) y del gradiente (\(n_{\text{grad}}\)).”</li>
+  </ol>
+</blockquote>
+<h4>Prompt 4: Diseño experimental</h4>
+<blockquote class="prompt">
+  <p>“Diseña un protocolo experimental para comparar los algoritmos implementados sobre las funciones de Rosenbrock y Rastrigin en dos y tres dimensiones. El protocolo debe:</p>
+  <ul>
+    <li>Ejecutar al menos 30 corridas independientes por algoritmo utilizando diferentes semillas aleatorias.</li>
+    <li>Implementar la métrica de evaluaciones equivalentes \(n_{\text{equiv}}=n_f+2d\,n_{\text{grad}}\), asumiendo diferencias finitas centrales.</li>
+    <li>Reportar una tabla con: media, desviación estándar, mejor valor encontrado, peor valor encontrado y tasa de éxito utilizando un umbral de convergencia previamente definido.</li>
+    <li>Sugerir una forma adecuada de comparar el desempeño de algoritmos basados en gradiente y algoritmos metaheurísticos.”</li>
+  </ul>
+</blockquote>
+<p>El uso de herramientas de Inteligencia Artificial generativa apoyó diferentes etapas del desarrollo del proyecto, desde la comprensión de los conceptos teóricos hasta la implementación computacional y el diseño de los experimentos. Sin embargo, todas las respuestas obtenidas fueron revisadas y validadas antes de ser incorporadas al trabajo final.</p>
+<h4>A. Comprensión del problema y diseño de la solución</h4>
+<ul>
+  <li><strong>Apoyo conceptual:</strong> la IA facilitó la comprensión de las propiedades matemáticas de las funciones de prueba y de los algoritmos de optimización, proporcionando explicaciones sobre su geometría, comportamiento y características principales.</li>
+  <li><strong>Diseño modular:</strong> también sirvió como apoyo para proponer una arquitectura de código organizada y modular, favoreciendo la separación entre las funciones objetivo, los algoritmos de optimización y el protocolo experimental, lo que facilitó el mantenimiento y la extensión del proyecto.</li>
+</ul>
+<h4>B. Implementación y verificación</h4>
+<ul>
+  <li><strong>Apoyo en la programación:</strong> la IA ayudó a resolver dudas relacionadas con la implementación de funciones, el uso de bibliotecas como <code>numpy</code> y la organización del código siguiendo buenas prácticas de programación.</li>
+  <li><strong>Verificación matemática y computacional:</strong> asimismo, permitió revisar derivaciones, expresiones matemáticas y resultados intermedios, contribuyendo a detectar posibles errores antes de realizar las pruebas experimentales.</li>
+</ul>
+<h4>C. Diseño experimental y análisis de resultados</h4>
+<ul>
+  <li><strong>Planeación de experimentos:</strong> la IA apoyó la definición del protocolo experimental, la organización de las corridas independientes y la selección de métricas para comparar el desempeño de los algoritmos.</li>
+  <li><strong>Interpretación de resultados:</strong> también contribuyó a la estructuración de tablas, figuras y criterios para analizar el comportamiento de los diferentes métodos de optimización, facilitando la elaboración del reporte técnico.</li>
+</ul>
+
+<h3>Punto 2</h3>
+<p>A continuación, se clasifican los <em>prompts</em> más relevantes utilizados a lo largo de las distintas fases.</p>
+<h4>Fase 1: Comprensión del problema y contexto teórico</h4>
+<ul>
+  <li><strong>Investigación y enfoque inicial:</strong> <em>“Resulta que tengo el siguiente trabajo en mi materia de redes neuronales y algoritmos bioinspirados, en primer lugar no quiero que me digas la solución, si no que me ayudes a entender el problema y los sitios donde debería investigar para llegar a un buen desarrollo, tanto teórico como práctico.”</em></li>
+  <li><strong>Contexto geográfico:</strong> <em>“Necesito aplicar este problema a la España peninsular. ¿Cuáles son las consideraciones geográficas que debo tener en cuenta al buscar las coordenadas de las 47 capitales para que el modelo funcione por carretera?”</em></li>
+</ul>
+<h4>Fase 2: Obtención de datos y detección de errores</h4>
+<ul>
+  <li><strong>Consulta de API pública:</strong> <em>“Tengo un Excel con la latitud y longitud de las 47 capitales. ¿Cómo puedo usar Python y la API de OpenRouteService para iterar sobre estas coordenadas y obtener una matriz cuadrada de distancias y tiempos?”</em></li>
+  <li><strong>Detección del problema transfronterizo:</strong> <em>“Al revisar las distancias generadas por la API entre ciudades como Huelva y Pontevedra, noto que los tiempos son muy bajos porque la ruta cruza por Portugal. ¿Cómo puedo restringir la API para que solo calcule rutas dentro de España?”</em></li>
+</ul>
+<h4>Fase 3: Implementación del servidor local (Docker)</h4>
+<ul>
+  <li><strong>Diseño de la solución local:</strong> <em>“Para evitar que las rutas pasen por Portugal, me recomendaron usar un archivo ‘.osm.pbf’ solo de España y montar un servidor local. Explícame paso a paso cómo usar Docker para configurar OpenRouteService en mi computadora con este mapa.”</em></li>
+  <li><strong>Resolución de errores de entorno:</strong> <em>“Al intentar correr el contenedor de Docker en Windows, me sale el error ‘Output files can not be written’ y el servidor se apaga. ¿Cómo soluciono este problema de permisos usando volúmenes de Docker?”</em></li>
+  <li><strong>Script cliente-servidor:</strong> <em>“El servidor de Docker ya está corriendo en localhost:8080. Escribe el script de Python que envíe las coordenadas de mi Excel a esta API local y exporte las matrices de tiempo y distancia en archivos CSV.”</em></li>
+</ul>
+
+<!-- ======================================================= CONCLUSIONES -->
+<h2 id="conclusiones">Resultados, discusión y conclusiones</h2>
+<h3>Resultados del proceso</h3>
+<p>El proceso permitió construir una base de datos propia y documentada sobre las 47 capitales de provincia de la España peninsular: coordenadas, matrices de distancia y de tiempo por carretera, parámetros económicos (vehículo, combustible y valor de la hora) y una matriz de peajes. Cada dato tiene una fuente y una fecha de consulta.</p>
+<h3>Discusión</h3>
+<p>El caso de Portugal mostró que una herramienta puede devolver resultados aparentemente correctos que no sirven para el problema planteado. OpenRouteService busca la ruta más rápida sobre todo el mapa disponible y, si una ruta por Portugal era más rápida, la elegía. En un problema de optimización, un solo atajo falso puede cambiar qué ruta parece mejor. El servidor local resolvió el error.</p>
+<p>La parte de los peajes mostró que no siempre existe el dato necesario: el peaje depende de la autopista, del tramo y del vehículo, y no se disponía de información de las rutas. Se optó por una aproximación declarada como tal. Al ser proporcional a la distancia, esta aproximación no distingue una ruta con peaje de una libre, por lo que sus valores deben leerse como estimaciones y no como tarifas reales.</p>
+<h3>Conclusiones</h3>
+<p>La calidad de los resultados depende de la calidad de los datos. Antes de aplicar cualquier algoritmo fue necesario verificar el origen de las coordenadas, la red de carreteras utilizada y el significado de cada parámetro; el error de las rutas por Portugal se detectó al revisar los resultados con cuidado y no era evidente en las matrices finales.</p>
+<p>Documentar cada decisión, con su fuente, su fecha, su razón y sus límites, forma parte del trabajo: permite que otras personas lo entiendan, lo repitan y juzguen hasta dónde llegan los resultados. Cuando un dato no pudo obtenerse, la solución fue construir una aproximación y declararla abiertamente. Por último, muchos parámetros del modelo son decisiones y no valores fijos, por lo que conviene estudiar cómo responde el modelo cuando cambian.</p>
+
+<!-- ======================================================= REFERENCIAS -->
+<h2 id="referencias">Referencias</h2>
+<ol class="refs" style="list-style:none;padding-left:0">
+  <li>Applegate, D. L., Bixby, R. E., Chvátal, V. y Cook, W. J. (2006). <em>The Traveling Salesman Problem: A Computational Study</em>. Princeton University Press.</li>
+  <li>Centro Nacional de Información Geográfica (CNIG). (s.f.). <em>Nomenclátor Geográfico de Municipios y Entidades de Población</em>. Instituto Geográfico Nacional. <a href="https://centrodedescargas.cnig.es/CentroDescargas/nomenclator-geografico-municipios-entidades-poblacion">https://centrodedescargas.cnig.es/CentroDescargas/nomenclator-geografico-municipios-entidades-poblacion</a></li>
+  <li>Croes, G. A. (1958). A method for solving traveling-salesman problems. <em>Operations Research, 6</em>(6), 791–812. <a href="https://doi.org/10.1287/opre.6.6.791">https://doi.org/10.1287/opre.6.6.791</a></li>
+  <li>Dantzig, G., Fulkerson, R. y Johnson, S. (1954). Solution of a large-scale traveling-salesman problem. <em>Journal of the Operations Research Society of America, 2</em>(4), 393–410. <a href="https://doi.org/10.1287/opre.2.4.393">https://doi.org/10.1287/opre.2.4.393</a></li>
+  <li>Davis, L. (1985). Applying adaptive algorithms to epistatic domains. En <em>Proceedings of the 9th International Joint Conference on Artificial Intelligence (IJCAI-85)</em> (Vol. 1, pp. 162–164). Morgan Kaufmann.</li>
+  <li>Dorigo, M. y Stützle, T. (2004). <em>Ant Colony Optimization</em>. MIT Press.</li>
+  <li>Gasolinera Hoy. (5 de octubre de 2026). <em>Precio de la gasolina 95 en España</em>. Datos atribuidos a MITECO. <a href="https://gasolinerahoy.es/">https://gasolinerahoy.es/</a></li>
+  <li>Geofabrik GmbH. (2026). <em>OpenStreetMap Data Extracts: Spain</em>. <a href="https://download.geofabrik.de/europe/spain.html">https://download.geofabrik.de/europe/spain.html</a></li>
+  <li>GIScience / HeiGIT. (s.f.-a). <em>Data: Input and Output Folders and Files</em>. openrouteservice Backend Documentation. <a href="https://giscience.github.io/openrouteservice/run-instance/data">https://giscience.github.io/openrouteservice/run-instance/data</a></li>
+  <li>GIScience / HeiGIT. (s.f.-b). <em>Matrix Endpoint</em>. openrouteservice Backend Documentation. <a href="https://giscience.github.io/openrouteservice/api-reference/endpoints/matrix/">https://giscience.github.io/openrouteservice/api-reference/endpoints/matrix/</a></li>
+  <li>GIScience / HeiGIT. (s.f.-c). <em>Running with Docker</em>. openrouteservice Backend Documentation. <a href="https://giscience.github.io/openrouteservice/run-instance/running-with-docker">https://giscience.github.io/openrouteservice/run-instance/running-with-docker</a></li>
+  <li>GIScience / HeiGIT. (s.f.-d). <em>Tag Filtering</em>. openrouteservice Backend Documentation. <a href="https://giscience.github.io/openrouteservice/technical-details/tag-filtering">https://giscience.github.io/openrouteservice/technical-details/tag-filtering</a></li>
+  <li>GIScience / HeiGIT. (s.f.-e). <em>Travel Speeds</em>. openrouteservice Backend Documentation. <a href="https://giscience.github.io/openrouteservice/technical-details/travel-speeds/">https://giscience.github.io/openrouteservice/technical-details/travel-speeds/</a></li>
+  <li>Goldberg, D. E. (1989). <em>Genetic Algorithms in Search, Optimization, and Machine Learning</em>. Addison-Wesley.</li>
+  <li>Holland, J. H. (1975). <em>Adaptation in Natural and Artificial Systems</em>. University of Michigan Press.</li>
+  <li>Instituto Nacional de Estadística. (17 de septiembre de 2026). <em>Encuesta Trimestral de Coste Laboral: segundo trimestre de 2026</em>. <a href="https://www.ine.es/dyngs/Prensa/ETCL2T26.htm">https://www.ine.es/dyngs/Prensa/ETCL2T26.htm</a></li>
+  <li>Luxen, D. y Vetter, C. (2011). Real-time routing with OpenStreetMap data. En <em>Proceedings of the 19th ACM SIGSPATIAL International Conference on Advances in Geographic Information Systems</em> (pp. 513–516). ACM. <a href="https://doi.org/10.1145/2093973.2094062">https://doi.org/10.1145/2093973.2094062</a></li>
+  <li>Moscato, P. (1989). <em>On Evolution, Search, Optimization, Genetic Algorithms and Martial Arts: Towards Memetic Algorithms</em> (C3P Report 826). California Institute of Technology.</li>
+  <li>OpenStreetMap contributors. (2026). <em>OpenStreetMap</em>. <a href="https://www.openstreetmap.org">https://www.openstreetmap.org</a></li>
+  <li>OpenStreetMap Foundation. (s.f.). <em>Copyright and License</em>. <a href="https://www.openstreetmap.org/copyright">https://www.openstreetmap.org/copyright</a></li>
+  <li>Or, I. (1976). <em>Traveling Salesman-Type Combinatorial Problems and Their Relation to the Logistics of Regional Blood Banking</em> [Tesis doctoral, Northwestern University].</li>
+  <li>Rastrigin, L. A. (1974). <em>Sistemy ekstremal'nogo upravleniya</em>. Nauka.</li>
+  <li>Roldán, P. L. (2016). <em>metinvsoccua-cap3-11a2016v3</em>. Scribd. Consultado el 13 de octubre de 2026. <a href="https://es.scribd.com/document/368696521/metinvsoccua-cap3-11a2016v3">https://es.scribd.com/document/368696521/metinvsoccua-cap3-11a2016v3</a></li>
+  <li>Rosenbrock, H. H. (1960). An automatic method for finding the greatest or least value of a function. <em>The Computer Journal, 3</em>(3), 175–184. <a href="https://doi.org/10.1093/comjnl/3.3.175">https://doi.org/10.1093/comjnl/3.3.175</a></li>
+  <li>Secretaría General de Transporte Terrestre. (6 de diciembre de 2024). <em>Resolución de 6 de diciembre de 2024, por la que se publica el Acuerdo del Consejo de Ministros de 3 de diciembre de 2024, por el que se aprueban las tarifas aplicables en determinadas autopistas de la Red de Carreteras del Estado</em>. Boletín Oficial del Estado. <a href="https://www.boe.es/diario_boe/txt.php?id=BOE-A-2024-26469">https://www.boe.es/diario_boe/txt.php?id=BOE-A-2024-26469</a></li>
+  <li>Secretaría General de Transporte Terrestre. (2025). <em>Informe 2024 sobre las autopistas de peaje y el sector concesional de carreteras en España</em>. Centro de Publicaciones. <a href="https://publicaciones.transportes.gob.es/informe-2024-sobre-las-autopistas-de-peaje-y-el-sector-concesional-de-carreteras-en-espana-delegacion-del-gobierno-en-las-sociedades-concesionarias-de-autopistas-nacionales-de-peaje">publicaciones.transportes.gob.es</a></li>
+  <li>Toyota España. (s.f.). <em>Toyota Corolla</em>. <a href="https://www.toyota.es/coches/corolla">https://www.toyota.es/coches/corolla</a></li>
+</ol>
+
+<footer>
+  Trabajo 1 · Redes Neuronales y Algoritmos Bio-Inspirados · Universidad Nacional de Colombia, sede Medellín.<br>
+  Código, datos e instrucciones para reproducir todos los resultados en el
+  <a href="https://github.com/MgtDevNet/T01_REDES_NEURONALES_">repositorio de GitHub</a> ·
+  <a href="informe.pdf">Informe completo en PDF</a> ·
+  <a href="https://youtu.be/By5gqy9wKyw">Video</a>
+</footer>
+
+</div>
+</body>
+</html>
