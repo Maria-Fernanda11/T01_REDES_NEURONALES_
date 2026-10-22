@@ -2,8 +2,7 @@
 Trabajo 1 - Parte 1: optimización numérica sobre Rosenbrock (2D y 3D).
 
 Métodos: descenso por gradiente (GD), algoritmo genético (GA), PSO y evolución
-diferencial (DE). Además dos líneas base opcionales: búsqueda aleatoria y
-recocido simulado.
+diferencial (DE). Adem�s una l�ea base opcional: b�squeda aleatoria.
 
 Comandos (todos con un solo comando, sin editar código):
     python optimizacion.py check
@@ -371,32 +370,6 @@ def random_search(obj, dim, bounds, rng, max_evals, record=False):
         traza_evals.append(obj.n_equiv)
         if record:
             frames.append(mejor_x.copy())
-    return mejor_x, mejor_f, historial, traza_evals, frames
-
-
-@register_algorithm("simulated_annealing")
-def simulated_annealing(obj, dim, bounds, rng, max_evals, record=False,
-                        temp_inicial=10.0, factor_enfriamiento=0.9995, paso_vecino=0.1):
-    lim_inf, lim_sup = bounds
-    x = rng.uniform(lim_inf, lim_sup, dim)
-    fx = obj(x)
-    mejor_x, mejor_f = x.copy(), fx
-    historial, traza_evals = [mejor_f], [obj.n_equiv]
-    frames = [x.copy()] if record else None
-    temperatura = temp_inicial
-    while obj.n_equiv + 1 <= max_evals:
-        candidato = np.clip(x + rng.normal(0.0, paso_vecino, dim), lim_inf, lim_sup)
-        f_candidato = obj(candidato)
-        delta_f = f_candidato - fx
-        if delta_f < 0 or rng.random() < np.exp(-delta_f / max(temperatura, 1e-12)):
-            x, fx = candidato, f_candidato
-            if fx < mejor_f:
-                mejor_x, mejor_f = x.copy(), fx
-        temperatura *= factor_enfriamiento
-        historial.append(mejor_f)
-        traza_evals.append(obj.n_equiv)
-        if record:
-            frames.append(x.copy())
     return mejor_x, mejor_f, historial, traza_evals, frames
 
 
